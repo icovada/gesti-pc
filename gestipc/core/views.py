@@ -4,4 +4,4 @@ from django.shortcuts import render
 
 def home(request):
     "Show home"
-    return render(request, "core/style.j2")
+    return render(request, "core/style.html")
