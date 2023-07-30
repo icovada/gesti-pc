@@ -13,6 +13,7 @@
         <th scope="col"></th>
         <th scope="col">Cognome</th>
         <th scope="col">Nome</th>
+        <th scope="col">Ruolo</th>
       </tr>
     </thead>
     <tbody>
@@ -23,6 +24,7 @@
         </th>
         <td>{{volontario.last_name}}</td>
         <td>{{volontario.first_name}}</td>
+        <td>{% for role in user.groups.all %}{{role}}{% if not forloop.last %}, {% else %}{% endif %}{% endfor %}</td>
       </tr>
       {% endfor %}
     </tbody>
