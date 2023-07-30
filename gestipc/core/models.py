@@ -5,6 +5,7 @@ from django.dispatch import receiver
 
 # Create your models here.
 
+
 class Profile(models.Model):
     fkuser = models.OneToOneField(User, on_delete=models.CASCADE)
     address = models.CharField(max_length=80, null=True)
@@ -19,6 +20,7 @@ class Profile(models.Model):
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
         Profile.objects.create(user=instance)
+
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
