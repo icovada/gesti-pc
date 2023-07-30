@@ -10,7 +10,7 @@ def main(request):
     total_response = ServizioResponse.objects.filter(id=OuterRef('id')) \
         .annotate(count=Func(F('id'), function='Count')) \
         .values('count')
-    total_acks = ServizioResponse.objects.filter(id=OuterRef('id'), response=1) \
+    total_acks = ServizioResponse.objects.filter(id=OuterRef('id'), response=ServizioResponse.ResponseEnum.ACCEPTED) \
         .annotate(count=Func(F('id'), function='Count')) \
         .values('count')
     servizi = Servizio.objects.order_by('-begin_date') \
