@@ -6,7 +6,12 @@ from django.dispatch import receiver
 # Create your models here.
 
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    fkuser = models.OneToOneField(User, on_delete=models.CASCADE)
+    address = models.CharField(max_length=80, null=True)
+    birth_date = models.DateField(null=True)
+    blood_type = models.CharField(max_length=3, null=True)
+    join_date = models.DateField(null=True)
+    phone_number = models.CharField(max_length=12, null=True)
     profile_picture = models.ImageField()
 
 
