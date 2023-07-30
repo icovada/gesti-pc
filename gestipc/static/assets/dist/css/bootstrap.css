@@ -179,11 +179,13 @@
     --bs-form-invalid-border-color: #ea868f
 }
 
+
 *,
 ::after,
 ::before {
     box-sizing: border-box
 }
+
 
 @media (prefers-reduced-motion:no-preference) {
     :root {

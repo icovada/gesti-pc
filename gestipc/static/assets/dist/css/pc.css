@@ -1,0 +1,13 @@
+.profile-picture {
+    border-radius: 50%;
+}
+
+table .profile-picture{
+    height: 50px;
+    width: 50px;
+}
+
+table tr > * {
+    vertical-align: middle;
+    height: 65px;
+}
