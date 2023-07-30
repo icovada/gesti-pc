@@ -4,26 +4,25 @@
 
 {% block body %}
 <div class="container">
-  <h1 class="mt-5">Lista volontari</h1>
+  <h1 class="my-5">Lista volontari
+    <a href="/hr/user/new" class="btn btn-success floatright">Crea utente</a>
+  </h1>
   <table class="table">
     <thead>
       <tr>
         <th scope="col"></th>
-        <th scope="col">Nome</th>
         <th scope="col">Cognome</th>
-        <th scope="col"></th>
-        <th scope="col"></th>
+        <th scope="col">Nome</th>
       </tr>
     </thead>
     <tbody>
       {% for volontario in users %}
       <tr>
         <th scope="row">
-          <img class="profile-picture" src="{% static volontario.profile.profile_picture %}" alt="Avatar"> 
+          <a href="/hr/user{{volontario.id}}"><img class="profile-picture" src="{% static volontario.profile.profile_picture %}" alt="Avatar"></a>
         </th>
-        <td>{{volontario.first_name}}</td>
         <td>{{volontario.last_name}}</td>
-        <td><a class="btn btn-primary" href="/hr/user{{volontario.id}}">Profilo</a></td>
+        <td>{{volontario.first_name}}</td>
       </tr>
       {% endfor %}
     </tbody>

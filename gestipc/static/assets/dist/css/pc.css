@@ -2,12 +2,20 @@
     border-radius: 50%;
 }
 
-table .profile-picture{
+table .profile-picture {
     height: 50px;
     width: 50px;
 }
 
-table tr > * {
+table tr>* {
     vertical-align: middle;
     height: 65px;
+}
+
+.vertical-middle {
+    vertical-align: middle;
+}
+
+.floatright {
+    float: right;
 }
