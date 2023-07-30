@@ -19,3 +19,15 @@ table tr>* {
 .floatright {
     float: right;
 }
+
+.response-declined::before{
+    content: '❌ ';
+}
+
+.response-accepted::before{
+    content: '✅ ';
+}
+
+.response-tentative::before{
+    content: '❓ ';
+}

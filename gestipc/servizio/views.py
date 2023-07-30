@@ -19,3 +19,12 @@ def main(request):
     )
     return render(request, 'servizio/main.html', {"curpage": "servizi",
                                                   "servizi": servizi})
+
+
+def detail(request, id):
+    servizio = Servizio.objects.get(id=id)
+    responses = ServizioResponse.objects.filter(fkservizio=id).prefetch_related('fkuser')
+    
+    return render(request, 'servizio/detail.html', {"curpage": "servizi",
+                                                    "servizio": servizio,
+                                                    "responses": responses})

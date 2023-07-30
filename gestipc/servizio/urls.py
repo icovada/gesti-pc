@@ -4,4 +4,5 @@ import servizio.views
 
 urlpatterns = [
     path("", servizio.views.main),
+    path("<int:id>", servizio.views.detail),
 ]

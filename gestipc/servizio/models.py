@@ -12,12 +12,12 @@ class Servizio(models.Model):
 
 
 class ServizioResponse(models.Model):
-    class ResponseEnum(models.IntegerChoices):
-        ACCEPTED = 1, 'Accettato'
-        REFUSED = 2, 'Rifiutato'
-        MAYBE = 3, 'Forse'
+    class ResponseEnum(models.TextChoices):
+        ACCEPTED = 'accepted', 'Accettato'
+        REFUSED = 'declined', 'Rifiutato'
+        MAYBE = 'tentative', 'Forse'
 
     fkservizio = models.ForeignKey(Servizio, on_delete=models.CASCADE)
     fkuser = models.ForeignKey(User, on_delete=models.PROTECT)
-    response = models.IntegerField(ResponseEnum)
+    response = models.CharField(max_length=10, choices=ResponseEnum.choices)
     last_update = models.DateTimeField(default=timezone.now)
