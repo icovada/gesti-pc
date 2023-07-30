@@ -170,7 +170,7 @@
     <!-- Fixed navbar -->
     <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-primary">
       <div class="container-fluid">
-        <a class="navbar-brand" href="#">
+        <a class="navbar-brand" href="/">
           <img src="{% static "/assets/brand/pc-logo.svg" %}" width="35" height="35" alt="">
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"
@@ -180,16 +180,13 @@
         <div class="collapse navbar-collapse" id="navbarCollapse">
           <ul class="navbar-nav me-auto mb-2 mb-md-0">
             <li class="nav-item">
-              <a class="nav-link active" aria-current="page" href="#">Home</a>
+              <a class="nav-link {% if curpage == "volontari" %}active{% endif %}" href="/hr">Volontari</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="/hr">Volontari</a>
+              <a class="nav-link {% if curpage == "magazzino" %}active{% endif %}" href="/magazzino">Magazzino</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#">Magazzino</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/servizio">Servizi</a>
+              <a class="nav-link {% if curpage == "servizi" %}active{% endif %}" href="/servizio">Servizi</a>
             </li>
           </ul>
         </div>

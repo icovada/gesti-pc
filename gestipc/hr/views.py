@@ -6,4 +6,5 @@ from django.contrib.auth.models import User
 
 def main(request):
     users = User.objects.all()
-    return render(request, 'hr/main.html', {"users": users})
+    return render(request, 'hr/main.html', {"curpage": "volontari",
+                                            "users": users})

@@ -17,4 +17,5 @@ def main(request):
         .annotate(total_response=Subquery(total_response),
                   total_acks=Subquery(total_acks)
     )
-    return render(request, 'servizio/main.html', {"servizi": servizi})
+    return render(request, 'servizio/main.html', {"curpage": "servizi",
+                                                  "servizi": servizi})
