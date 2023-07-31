@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from pcroncellobot import urls as pcroncellobot_urls
 
 import core.views
 
@@ -24,5 +25,6 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('hr/', include('hr.urls')),
     path('servizio/', include('servizio.urls')),
+    path('pcroncellobot/', include(pcroncellobot_urls)),
     path('', core.views.home),
 ]
