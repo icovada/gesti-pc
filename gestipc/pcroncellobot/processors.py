@@ -1,11 +1,33 @@
 from django_tgbot.decorators import processor
+from django.conf import settings
 from django_tgbot.state_manager import message_types, update_types, state_types
 from django_tgbot.types.update import Update
 from .bot import state_manager
 from .models import TelegramState
 from .bot import TelegramBot
+from core.models import TelegramLink, Profile
+
 
 
 @processor(state_manager, from_states=state_types.All)
 def hello_world(bot: TelegramBot, update: Update, state: TelegramState):
-    bot.sendMessage(update.get_chat().get_id(), 'Hello!')
+    #bot.sendMessage(update.get_chat().get_id(), 'Hello!')
+    pass
+
+@processor(state_manager, from_states=state_types.All)
+def register(bot: TelegramBot, update: Update, state: TelegramState):
+    if update.get_message().text != "/register":
+        return
+
+    userid = update.get_user().get_id()
+
+    try:
+        currentuser = Profile.objects.get(telegram_user_id=userid)
+    except Profile.DoesNotExist:
+        new_verification_token = TelegramLink.objects.create(telegram_user=userid)
+        new_verification_token.save()
+        bot.sendMessage(update.get_chat().get_id(), f"Vai su {settings.OUTSIDE_URL}/hr/link_tg/{str(new_verification_token.security_code)} entro 10 minuti per collegare il tuo account")
+    else:
+        bot.sendMessage(update.get_chat().get_id(), "Sei già registrato")
+    
+    
