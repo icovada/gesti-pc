@@ -9,10 +9,10 @@ from pcroncellobot.bot import bot
 
 
 def main(request):
-    total_response = ServizioResponse.objects.filter(id=OuterRef('id')) \
+    total_response = ServizioResponse.objects.filter(fkservizio=OuterRef('id')) \
         .annotate(count=Func(F('id'), function='Count')) \
         .values('count')
-    total_acks = ServizioResponse.objects.filter(id=OuterRef('id'), response=ServizioResponse.ResponseEnum.ACCEPTED) \
+    total_acks = ServizioResponse.objects.filter(fkservizio=OuterRef('id'), response=ServizioResponse.ResponseEnum.ACCEPTED) \
         .annotate(count=Func(F('id'), function='Count')) \
         .values('count')
     servizi = Servizio.objects.order_by('-begin_date') \
