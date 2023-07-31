@@ -1,5 +1,6 @@
 from django_tgbot.decorators import processor
 from django.conf import settings
+from django.contrib.auth.models import User
 from django_tgbot.state_manager import message_types, update_types, state_types
 from django_tgbot.types.update import Update
 from .bot import state_manager
@@ -35,4 +36,11 @@ def register(bot: TelegramBot, update: Update, state: TelegramState):
 
 
 def registration_complete(bot: TelegramBot, user):
-    bot.sendMessage(user.profile.telegram_user_id, f"Account {user.username} collegato correttamente")
+    bot.sendMessage(user.profile.telegram_user_id,
+                    f"Account {user.username} collegato correttamente")
+
+
+def nuovo_servizio_callback(bot: TelegramBot):
+    for user in User.objects.all():
+        if user.profile.telegram_user_id is not None:
+            bot.sendMessage(user.profile.telegram_user_id, "Nuovo servizio creato, ci sei?")

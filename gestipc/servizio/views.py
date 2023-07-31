@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect
 from django.db.models import OuterRef, Subquery, Func, F
-
-
 from .models import Servizio, ServizioResponse
+
+from pcroncellobot.processors import nuovo_servizio_callback
+from pcroncellobot.bot import bot
 
 # Create your views here.
 
@@ -39,6 +40,9 @@ def new(request):
             location=request.POST['location'],
             created_by=request.user,
         )
+
+        nuovo_servizio_callback(bot)
+
         return redirect(main)
     else:
         return render(request, 'servizio/new.html', {"curpage": "servizi"})
