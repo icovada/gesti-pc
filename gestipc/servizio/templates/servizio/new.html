@@ -1,0 +1,31 @@
+{% extends 'core/style.html' %}
+
+{% load static %}
+
+{% block body %}
+
+<div class="container">
+
+  <h1 class="my-5">Crea servizio</h1>
+  <form method="post">{% csrf_token %}
+    <div class="mb-3">
+      <label for="begin_date" class="form-label">Data</label>
+      <input type="date" class="form-control" id="begin_date" name="begin_date" aria-describedby="dateHelp">
+      <div id="dateHelp" class="form-text">Data del servizio</div>
+    </div>
+    <div class="mb-3">
+      <label for="begin_time" class="form-label">Ora</label>
+      <input type="time" class="form-control" id="begin_time" name="begin_time" aria-describedby="timeHelp">
+      <div id="timeHelp" class="form-text">Ora del ritrovo</div>
+    </div>
+    <div class="mb-3">
+      <label for="location" class="form-label">Luogo</label>
+      <input type="text" class="form-control" id="location" name="location" aria-describedby="locationHelp">
+      <div id="locationHelp" class="form-text">Luogo del ritrovo</div>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+
+
+</div>
+{% endblock body %}

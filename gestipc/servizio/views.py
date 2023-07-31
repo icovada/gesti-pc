@@ -1,5 +1,5 @@
-from django.shortcuts import render
-from django.db.models import Count, OuterRef, Q, Subquery, Func, F
+from django.shortcuts import render, redirect
+from django.db.models import OuterRef, Subquery, Func, F
 
 
 from .models import Servizio, ServizioResponse
@@ -30,3 +30,15 @@ def detail(request, id):
     return render(request, 'servizio/detail.html', {"curpage": "servizi",
                                                     "servizio": servizio,
                                                     "responses": responses})
+
+
+def new(request):
+    if request.method == 'POST':
+        Servizio.objects.create(
+            begin_date=f"{request.POST['begin_date']} {request.POST['begin_time']}",
+            location=request.POST['location'],
+            created_by=request.user,
+        )
+        return redirect(main)
+    else:
+        return render(request, 'servizio/new.html', {"curpage": "servizi"})
