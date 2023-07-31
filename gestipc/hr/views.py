@@ -23,7 +23,7 @@ def detail_page(request, id):
     return render(request, 'hr/profile.html', {"curpage": "volontari",
                                                "user": user})
 
-
+@login_required
 def link_tg(request, uuid):
     try:
         tg_link = TelegramLink.objects.get(security_code=uuid)
