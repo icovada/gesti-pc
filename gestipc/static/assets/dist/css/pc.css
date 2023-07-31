@@ -1,10 +1,13 @@
 .profile-picture {
     border-radius: 50%;
-}
-
-table .profile-picture {
     height: 50px;
     width: 50px;
+}
+
+.profile-picture-small{
+    border-radius: 50%;
+    height: 35px;
+    width: 35px;
 }
 
 table tr>* {
