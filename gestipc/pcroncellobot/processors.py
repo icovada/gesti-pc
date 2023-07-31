@@ -32,3 +32,7 @@ def register(bot: TelegramBot, update: Update, state: TelegramState):
         ), f"Vai su {settings.OUTSIDE_URL}/hr/link_tg/{str(new_verification_token.security_code)} entro 10 minuti per collegare il tuo account")
     else:
         bot.sendMessage(update.get_chat().get_id(), "Sei già registrato")
+
+
+def registration_complete(bot: TelegramBot, user):
+    bot.sendMessage(user.profile.telegram_user_id, f"Account {user.username} collegato correttamente")

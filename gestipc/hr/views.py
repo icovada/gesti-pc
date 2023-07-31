@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 from .models import TelegramLink
 from core.models import Profile
 from django.contrib.auth.decorators import login_required
-
+from pcroncellobot.bot import bot
+from pcroncellobot.processors import registration_complete
 
 # Create your views here.
 
@@ -35,5 +36,7 @@ def link_tg(request, uuid):
     profile.save()
 
     tg_link.delete()
+
+    registration_complete(bot, request.user)
 
     return render(request, 'hr/tg_link_success.html')
