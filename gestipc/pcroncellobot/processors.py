@@ -18,7 +18,7 @@ def hello_world(bot: TelegramBot, update: Update, state: TelegramState):
 
 @processor(state_manager, from_states=state_types.All)
 def register(bot: TelegramBot, update: Update, state: TelegramState):
-    if update.get_message().text != "/register":
+    if getattr(update.get_message(), 'text', None) != "/register":
         return
 
     userid = update.get_user().get_id()
