@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from pcroncellobot.models import TelegramUser
 
 # Create your models here.
 
@@ -14,19 +15,11 @@ class Profile(models.Model):
     join_date = models.DateField(null=True)
     phone_number = models.CharField(max_length=12, null=True)
     profile_picture = models.ImageField()
-    telegram_user_id = models.CharField(max_length=20, blank=True, null=True)
+    telegram_user = models.OneToOneField(TelegramUser, on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         indexes = [
             models.Index(fields=["fkuser"])
-        ]
-        constraints = [
-            models.constraints.UniqueConstraint(
-                fields=["fkuser"], name="one_profile_per_user"
-            ),
-            models.constraints.UniqueConstraint(
-                fields=["telegram_user_id"], name="one_telegram_per_person"
-            )
         ]
 
 

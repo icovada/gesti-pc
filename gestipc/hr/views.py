@@ -32,7 +32,7 @@ def link_tg(request, uuid):
 
     profile = request.user.profile
 
-    profile.telegram_user_id = tg_link.telegram_user_id
+    profile.telegram_user = tg_link.telegram_user
     profile.save()
 
     tg_link.delete()
