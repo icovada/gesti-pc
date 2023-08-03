@@ -4,6 +4,12 @@
     width: 50px;
 }
 
+.profile-picture-big {
+    border-radius: 50%;
+    height: 120px;
+    width: 120px;
+}
+
 .profile-picture-small{
     border-radius: 50%;
     height: 35px;
