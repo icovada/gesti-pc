@@ -16,18 +16,42 @@
       </div>
     </div>
   </div>
+
+  <div class="fs-2 mb-5">Dati personali</div>
   
   <div class="container user-profile">
     <div class="row g-4 py-2 row-cols-1 row-cols-lg-2">
       {% for key, value in profile.items %}
       <div class="feature col">
-        <h3 class="fs-3 text-body-emphasis">{{key}}</h3>
+        <h3 class="fs-4 text-body-emphasis">{{key}}</h3>
         <p>{{value}}</p>
       </div>
       {% endfor %}
     </div>
   </div>
 
+  <div class="fs-2 mb-5">Attrezzatura</div>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th scope="col">Oggetto</th>
+        <th scope="col">Assegnato</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in equipment %}
+      <tr>
+        <td>{{x.0}}</td>
+        {% if x.1 %}
+        <td class=><div class="fa fa-check fw-bolder fs-5 text-success"></td>
+        {% else %}
+        <td class=><div class="fa fa-x fw-bolder fs-5 text-danger"></td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 
 </div>
 {% endblock body %}

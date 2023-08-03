@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.core.serializers import deserialize
 from django.contrib.auth.models import User
 from .models import TelegramLink
+from hr.models import PersonalEquipmentAssignmentDetail, PersonalEquipmentType
 from django.contrib.auth.decorators import login_required
 from pcroncellobot.bot import bot
 from pcroncellobot.processors import registration_complete
@@ -23,17 +24,25 @@ def detail_page(request, id):
     userprofile = user.profile
 
     profile_fields = userprofile._meta.get_fields()
-
     exclude = ['fkuser', 'address', 'telegram_user', 'profile_picture']
-
     profile_dict = {
         x.verbose_name: getattr(userprofile, x.name)
         for x in profile_fields if x.name not in exclude
     }
 
+    all_equipment = PersonalEquipmentType.objects.order_by('kind').all()
+    all_equipment_dict = {x.kind: False for x in all_equipment}
+    assigned_equipment = PersonalEquipmentAssignmentDetail.objects.filter(fkuser=user)
+
+    for x in assigned_equipment:
+        all_equipment_dict[x.fkequipmentkind.kind] = True
+
+    personal_equipment_sorted = [(x.kind, all_equipment_dict[x.kind]) for x in all_equipment]
+
     return render(request, 'hr/profile.html', {"curpage": "volontari",
                                                "user": user,
-                                               "profile": profile_dict})
+                                               "profile": profile_dict,
+                                               "equipment": personal_equipment_sorted})
 
 
 @login_required
