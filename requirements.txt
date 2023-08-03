@@ -4,6 +4,7 @@ charset-normalizer==3.2.0
 Django==4.2.3
 django-bootstrap5==23.3
 django-tgbot==2.0.0
+fontawesomefree==6.4.2
 idna==3.4
 Pillow==10.0.0
 requests==2.31.0
