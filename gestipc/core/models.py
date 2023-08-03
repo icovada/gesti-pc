@@ -30,6 +30,9 @@ class Profile(models.Model):
             models.Index(fields=["fkuser"])
         ]
 
+    def __str__(self) -> str:
+        return self.fkuser.username
+
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
