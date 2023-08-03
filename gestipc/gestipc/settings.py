@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_tgbot',
+    'django_bootstrap5',
     'pcroncellobot',
     'hr',
     'core',
@@ -60,7 +61,7 @@ ROOT_URLCONF = 'gestipc.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -135,3 +136,6 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'static/media')
 
 OUTSIDE_URL = "https://enough-safely-duckling.ngrok-free.app"
+
+
+CSRF_TRUSTED_ORIGINS = [OUTSIDE_URL, 'http://127.0.0.1:8000']
