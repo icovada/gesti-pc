@@ -1,4 +1,5 @@
 {% extends 'core/style.html' %}
+{% load django_bootstrap5 %}
 
 {% load static %}
 
@@ -18,20 +19,12 @@
   
   <div class="container user-profile">
     <div class="row g-4 py-2 row-cols-1 row-cols-lg-2">
+      {% for key, value in profile.items %}
       <div class="feature col">
-        <h3 class="fs-3 text-body-emphasis">Data di nascita</h3>
-        <p>{{user.profile.birth_date}}</p>
+        <h3 class="fs-3 text-body-emphasis">{{key}}</h3>
+        <p>{{value}}</p>
       </div>
-      <div class="feature col">
-        <h3 class="fs-3 text-body-emphasis">Data di iscrizione</h3>
-        <p>{{user.profile.join_date}}</p>
-      </div>
-    </div>
-    <div class="row g-4 py-2 row-cols-1 row-cols-lg-2">
-      <div class="feature col">
-        <h3 class="fs-3 text-body-emphasis">Gruppo sanguigno</h3>
-        <p>{{user.profile.blood_type}}</p>
-      </div>
+      {% endfor %}
     </div>
   </div>
 
