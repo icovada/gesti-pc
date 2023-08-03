@@ -9,12 +9,20 @@ from pcroncellobot.models import TelegramUser
 
 class Profile(models.Model):
     fkuser = models.OneToOneField(User, on_delete=models.CASCADE)
-    address = models.CharField(max_length=80, null=True)
-    birth_date = models.DateField(null=True)
-    blood_type = models.CharField(max_length=3, null=True)
-    join_date = models.DateField(null=True)
-    phone_number = models.CharField(max_length=12, null=True)
-    profile_picture = models.ImageField()
+    address = models.TextField(null=True, blank=True)
+    birth_date = models.DateField(null=True, blank=True)
+    blood_type = models.CharField(max_length=3, null=True, blank=True)
+    join_date = models.DateField(null=True, blank=True)
+    phone_number = models.CharField(max_length=14, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    clothes_size = models.CharField(max_length=20, null=True, blank=True)
+    shoe_size = models.IntegerField(null=True, blank=True)
+    illnesses = models.TextField(null=True, blank=True)
+    workplace_name = models.CharField(max_length=30, null=True, blank=True)
+    workplace_vat = models.CharField(max_length=11, null=True, blank=True)
+    workplace_address = models.TextField(null=True, blank=True)
+    workplace_phone = models.CharField(max_length=13, null=True, blank=True)
+    profile_picture = models.ImageField(null=True, blank=True)
     telegram_user = models.OneToOneField(TelegramUser, on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
