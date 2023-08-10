@@ -32,12 +32,14 @@ def detail_page(request, id):
 
     all_equipment = PersonalEquipmentType.objects.order_by('kind').all()
     all_equipment_dict = {x.kind: False for x in all_equipment}
-    assigned_equipment = PersonalEquipmentAssignmentDetail.objects.filter(fkuser=user)
+    assigned_equipment = PersonalEquipmentAssignmentDetail.objects.filter(
+        fkuser=user)
 
     for x in assigned_equipment:
         all_equipment_dict[x.fkequipmentkind.kind] = True
 
-    personal_equipment_sorted = [(x.kind, all_equipment_dict[x.kind]) for x in all_equipment]
+    personal_equipment_sorted = [
+        (x.kind, all_equipment_dict[x.kind]) for x in all_equipment]
 
     return render(request, 'hr/profile.html', {"curpage": "volontari",
                                                "user": user,
