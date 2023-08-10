@@ -196,7 +196,7 @@
           <ul class="nav navbar-nav navbar-right">
             <div class="dropdown">
               <a class="nav-link dropdown-toggle active" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <img class="profile-picture-small mx-3" src="{% static user.profile.profile_picture %}" alt="Avatar"> {{user.first_name}} {{user.last_name}}
+                <img class="profile-picture-small mx-3" src="{% if user.profile.profile_picture|length > 0 %}{% static user.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"> {{user.first_name}} {{user.last_name}}
               </a>
               <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="/accounts/logout">Esci</a></li>
