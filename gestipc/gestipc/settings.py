@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_tgbot',
     'django_bootstrap5',
+    'fontawesomefree',
     'pcroncellobot',
     'hr',
     'core',
