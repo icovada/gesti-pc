@@ -2,8 +2,8 @@ from django.shortcuts import render, redirect
 from django.db.models import OuterRef, Subquery, Func, F
 from .models import Servizio, ServizioResponse
 
-from pcroncellobot.processors import nuovo_servizio_callback
-from pcroncellobot.bot import bot
+from tg_bot.processors import nuovo_servizio_callback
+from tg_bot.bot import bot
 
 # Create your views here.
 

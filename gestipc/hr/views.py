@@ -5,8 +5,8 @@ from django.contrib.auth.models import User
 from .models import TelegramLink
 from hr.models import PersonalEquipmentAssignmentDetail, PersonalEquipmentType
 from django.contrib.auth.decorators import login_required
-from pcroncellobot.bot import bot
-from pcroncellobot.processors import registration_complete
+from tg_bot.bot import bot
+from tg_bot.processors import registration_complete
 
 # Create your views here.
 

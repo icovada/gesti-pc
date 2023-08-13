@@ -2,7 +2,7 @@ import uuid
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
-from pcroncellobot.models import TelegramUser
+from tg_bot.models import TelegramUser
 
 # Create your models here.
 

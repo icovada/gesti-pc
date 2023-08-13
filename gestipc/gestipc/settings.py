@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'django_tgbot',
     'django_bootstrap5',
     'fontawesomefree',
-    'pcroncellobot',
+    'tg_bot',
     'hr',
     'core',
     'servizio',
