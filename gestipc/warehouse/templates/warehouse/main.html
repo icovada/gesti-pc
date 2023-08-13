@@ -1,0 +1,45 @@
+{% extends 'core/style.html' %}
+
+{% load static %}
+{% load my_filters %}
+
+{% block body %}
+<div class="container">
+  <h1 class="my-5">Gestione Magazzino</h1>
+  <table class="table">
+    <thead>
+      <tr>
+        <th scope="col"></th>
+        <th scope="col">Tipo</th>
+        <th scope="col">Marca</th>
+        <th scope="col">Modello</th>
+        <th scope="col">Stato</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in warehouse_items %}
+      <tr>
+        <th scope="row">
+          <a href="/warehouse/item/{{item.id}}">{% if item.picture %}<img class="profile-picture" src="{% static item.picture %}" alt="Avatar">
+          {% else %}
+          <i class="fa-solid fa-camera fa-xl"></i>
+          {% endif %}
+          </a>
+        </th>
+        
+        <td>{{item.kind}}</td>
+        <td>{{item.brand}}</td>
+        <td>{{item.model}}</td>
+        <td>
+        {% for i in item.conditions|times %}
+        <i class="fa-solid fa-star fa-sm" style="color: #e01b24;"></i>
+        {% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+
+</div>
+{% endblock body %}

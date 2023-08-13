@@ -25,6 +25,7 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('hr/', include('hr.urls')),
     path('servizio/', include('servizio.urls')),
+    path('warehouse/', include('warehouse.urls')),
     path('tg-bot/', include(tg_bot_urls)),
     path('', core.views.home),
 ]

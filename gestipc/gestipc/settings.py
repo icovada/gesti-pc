@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'hr',
     'core',
     'servizio',
+    'warehouse',
 ]
 
 MIDDLEWARE = [
