@@ -199,6 +199,7 @@
                 <img class="profile-picture-small mx-3" src="{% if user.profile.profile_picture|length > 0 %}{% static user.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"> {{user.first_name}} {{user.last_name}}
               </a>
               <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="/hr/user/{{user.id}}">Il mio profilo</a></li>
                 <li><a class="dropdown-item" href="/accounts/logout">Esci</a></li>
               </ul>
             </div>
