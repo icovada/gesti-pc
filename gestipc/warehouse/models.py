@@ -1,5 +1,8 @@
 from django.db import models
 from django.core.validators import MaxValueValidator
+from django.contrib.auth.models import User
+from django.utils import timezone
+
 
 # Create your models here.
 
@@ -12,3 +15,10 @@ class InventoryItem(models.Model):
     conditions = models.PositiveIntegerField(
         verbose_name="Condizioni", default=5, validators=[MaxValueValidator(5)])
     notes = models.TextField(verbose_name="Note aggiuntive")
+
+
+class Loans(models.Model):
+    fkinventory_item = models.ForeignKey(InventoryItem, models.CASCADE)
+    fkuser = models.ForeignKey(User, on_delete=models.PROTECT)
+    loan_date = models.DateTimeField(default=timezone.now)
+    return_date = models.DateTimeField(null=True, blank=True)
