@@ -3,6 +3,8 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django_tgbot.state_manager import message_types, update_types, state_types
 from django_tgbot.types.update import Update
+from django_tgbot.types.inlinekeyboardmarkup import InlineKeyboardMarkup
+from django_tgbot.types.inlinekeyboardbutton import InlineKeyboardButton
 from .bot import state_manager
 from .models import TelegramState, TelegramUser
 from .bot import TelegramBot
@@ -44,4 +46,14 @@ def registration_complete(bot: TelegramBot, user):
 def nuovo_servizio_callback(bot: TelegramBot):
     for user in User.objects.all():
         if user.profile.telegram_user is not None:
-            bot.sendMessage(user.profile.telegram_user.telegram_id, "Nuovo servizio creato, ci sei?")
+            bot.sendMessage(user.profile.telegram_user.telegram_id,
+                            "Nuovo servizio creato, ci sei?")
+
+
+def new_item_loaned_to_user(bot: TelegramBot, tg_user):
+    bot.sendMessage(tg_user,
+                    "Oggetto assegnato a te, premi Riconsegna per riconsegnare",
+                    reply_markup=InlineKeyboardMarkup.a(inline_keyboard=[
+                        [InlineKeyboardButton.a(
+                            text="Riconsegna", callback_data="item_return")]
+                    ]))
