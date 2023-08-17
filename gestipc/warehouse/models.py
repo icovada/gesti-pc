@@ -13,7 +13,7 @@ class InventoryItem(models.Model):
     kind = models.CharField(max_length=20, verbose_name="Tipo")
     picture = models.ImageField(verbose_name="Foto", null=True, blank=True)
     conditions = models.PositiveIntegerField(
-        verbose_name="Condizioni", default=5, validators=[MaxValueValidator(5)])
+        verbose_name="Condizione", default=5, validators=[MaxValueValidator(5)])
     notes = models.TextField(verbose_name="Note aggiuntive")
 
 

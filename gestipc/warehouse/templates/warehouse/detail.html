@@ -1,0 +1,50 @@
+{% extends 'core/style.html' %}
+{% load django_bootstrap5 %}
+
+{% load static %}
+{% load my_filters %}
+
+{% block body %}
+
+<div class="container">
+  <div class="container py-5">
+    <div class="row row-cols-1 row-cols-lg-2">
+      <div class="col col-12 col-lg-3"><img class="profile-picture-big" src="{% static inv_item.picture %}" alt="Avatar"></div>
+      <div class="col col-12 col-lg-9 d-flex flex-column">
+        <div class="px-3"><h1>{{inv_item.brand}} {{inv_item.model}}</h1></div>
+        <div class="px-3"><h4>{{inv_item.kind}}</h4>
+            {% for i in inv_item.conditions|times %}
+            <i class="fa-solid fa-star fa-sm" style="color: #e01b24;"></i>
+            {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="container user-profile">
+    <div class="row g-4 py-2 row-cols-1 row-cols-lg-2">
+      {% for key, value in inv_item.items %}
+      <div class="feature col">
+        <h3 class="fs-4 text-body-emphasis">{{key}}</h3>
+        <p>{{value}}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th scope="col">Assegnatario</th>
+        <th scope="col">Data uscita</th>
+        <th scope="col">Data rientro</th>
+      </tr>
+    </thead>
+    <tbody>
+
+    </tbody>
+  </table>
+
+</div>
+{% endblock body %}

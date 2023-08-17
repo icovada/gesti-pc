@@ -1,0 +1,22 @@
+{% extends 'core/style.html' %}
+
+{% load django_bootstrap5 %}
+{% load static %}
+{% load my_filters %}
+
+{% block body %}
+<div class="container">
+  <h1 class="my-5">{{ title }}</h1>
+  {% bootstrap_messages %}
+  <form method="post" class="form">
+    {% csrf_token %}
+  
+    {% bootstrap_form form %}
+  
+    {% bootstrap_button button_type="submit" content="OK" %}
+    {% bootstrap_button button_type="reset" content="Cancel" %}
+  
+  </form>
+
+</div>
+{% endblock body %}
