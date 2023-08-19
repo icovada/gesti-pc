@@ -1,9 +1,11 @@
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
+from django.contrib.auth.models import User
 from django.http.response import HttpResponseNotAllowed, HttpResponseRedirect, HttpResponse
 from django.contrib.auth.decorators import login_required
 
 # Create your views here.
+from core.forms import UserMultipleChoiceForm
 from .models import InventoryItem
 from .forms import InventoryItemForm, InventoryItemEditForm
 
@@ -18,8 +20,12 @@ def main(request):
 @login_required
 def inventory_detail(request, id):
     inventory_item = get_object_or_404(InventoryItem, id=id)
+    user_queryset = User.objects.all()
+    user_form = UserMultipleChoiceForm(user_queryset=user_queryset)
+
     return render(request, 'warehouse/detail.html', {"curpage": "warehouse",
-                                                     "inv_item": inventory_item})
+                                                     "inv_item": inventory_item,
+                                                     "user_form": user_form})
 
 
 @login_required

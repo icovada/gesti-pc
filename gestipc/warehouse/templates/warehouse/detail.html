@@ -10,13 +10,18 @@
   <div class="container py-5">
     <div class="row row-cols-1 row-cols-lg-2">
       <div class="col col-12 col-lg-3"><img class="profile-picture-big" src="{% static inv_item.picture %}" alt="Avatar"></div>
-      <div class="col col-12 col-lg-9 d-flex flex-column">
+      <div class="col col-9 col-lg-7 d-flex flex-column">
         <div class="px-3"><h1>{{inv_item.brand}} {{inv_item.model}}</h1></div>
         <div class="px-3"><h4>{{inv_item.kind}}</h4>
             {% for i in inv_item.conditions|times %}
             <i class="fa-solid fa-star fa-sm" style="color: #e01b24;"></i>
             {% endfor %}
         </div>
+      </div>
+      <div class="col col-3 col-lg-2">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loanModal">
+          Assegna
+        </button>
       </div>
     </div>
   </div>
@@ -47,4 +52,31 @@
   </table>
 
 </div>
+
+
+<!-- Modal -->
+<div class="modal fade" id="loanModal" tabindex="-1" aria-labelledby="loanModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="post" class="form">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="loanModalLabel">Assegna oggetto a volontario</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+          {% csrf_token %}
+        
+          {% bootstrap_form user_form %}
+        
+          
+        </div>
+        <div class="modal-footer">
+          {% bootstrap_button button_type="reset" content="Annulla" button_class="btn-danger" %}
+          {% bootstrap_button button_type="submit" content="OK"  %}
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endblock body %}
