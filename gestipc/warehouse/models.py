@@ -22,3 +22,15 @@ class Loans(models.Model):
     fkuser = models.ForeignKey(User, on_delete=models.PROTECT)
     loan_date = models.DateTimeField(default=timezone.now)
     return_date = models.DateTimeField(null=True, blank=True)
+    notification_message = models.PositiveIntegerField(null=True, blank=True)
+    warehouse_staff_approved = models.BooleanField(
+        verbose_name="Approvazione magazziniere", default=False)
+
+    class Meta:
+        permissions = (
+            ("can_approve_return", "Può approvare un reso"),
+        )
+        indexes = [
+            models.Index(fields=["id", ]),
+            models.Index(fields=["fkinventory_item", ]),
+        ]
