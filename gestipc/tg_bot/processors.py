@@ -68,6 +68,9 @@ def new_item_loaned_to_user(bot: TelegramBot, tg_user: TelegramUser, instance: L
 
 @processor(state_manager, from_states=state_types.All, update_types=[update_types.CallbackQuery])
 def return_loaned_item(bot: TelegramBot, update, state):
+    """Receive callback for loan return.
+    If not warehouse worker, ask warehouse workers for final approval
+    """
     query = update.get_callback_query()
     userid = query.get_user().get_id()
     messageid = query.get_message().message_id
@@ -108,7 +111,7 @@ def return_loaned_item(bot: TelegramBot, update, state):
                 text=f"{loan.fkuser.first_name} {loan.fkuser.last_name} ha riportato {loan.fkinventory_item.brand} {loan.fkinventory_item.model}. Confermi?",
                 reply_markup=InlineKeyboardMarkup.a(inline_keyboard=[
                     [InlineKeyboardButton.a(
-                        text="✅ Sì", callback_data=f"return-confirm-{loan.id}-{loan.notification_message}")]
+                        text="✅ Sì", callback_data=f"return_confirm-{loan.id}-{loan.notification_message}")]
                 ])
             )
 
@@ -116,3 +119,55 @@ def return_loaned_item(bot: TelegramBot, update, state):
         message,
         chat_id=query.get_chat().get_id(),
         message_id=query.get_message().message_id)
+
+
+@processor(state_manager, from_states=state_types.All, update_types=[update_types.CallbackQuery])
+def confirm_return_item(bot: TelegramBot, update, state):
+    """Receive return inline callback from warehouse worker
+    Finalize loan return
+    """
+    query = update.get_callback_query()
+    userid = query.get_user().get_id()
+    messageid = query.get_message().message_id
+    callback_data = update.get_callback_query().get_data()
+
+    try:
+        assert "return_confirm" in callback_data
+    except AssertionError:
+        return
+
+    bot.answerCallbackQuery(
+        update.get_callback_query().get_id(),
+        text='Elaborazione in corso...')
+
+    _, loan_id, notification_message = callback_data.split("-")
+
+    loan = Loan.objects.get(id=loan_id)
+
+    # Check message id is the same we are expecting
+    try:
+        assert int(notification_message) == loan.notification_message
+        django_user = User.objects.get(
+            profile__telegram_user__telegram_id=userid)
+        approval = "warehouse.can_approve_return" in django_user.get_user_permissions()
+        assert approval
+    except AssertionError:
+        return
+
+    loan.return_date = timezone.now()
+    loan.warehouse_staff_approved = approval
+    loan.save()
+
+
+    # Tell warehouse worker we are good
+    bot.editMessageText(
+        query.get_message().get_text() + "\n\nConfermato",
+        chat_id=query.get_chat().get_id(),
+        message_id=messageid)
+
+    message = f"{loan.fkinventory_item.brand} {loan.fkinventory_item.model} restituito\n\nApprovazione ricevuta"
+    # Update message for original loan user
+    bot.editMessageText(
+        message,
+        chat_id=loan.fkuser.profile.telegram_user.telegram_id,
+        message_id=loan.notification_message)
