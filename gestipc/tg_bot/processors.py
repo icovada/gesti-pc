@@ -57,3 +57,23 @@ def new_item_loaned_to_user(bot: TelegramBot, tg_user):
                         [InlineKeyboardButton.a(
                             text="Riconsegna", callback_data="item_return")]
                     ]))
+
+
+@processor(state_manager, from_states=state_types.All, update_types=[update_types.CallbackQuery])
+def return_loaned_item(bot: TelegramBot, update, state):
+    query = update.get_callback_query()
+    userid = query.get_user().get_id
+    callback_data = update.get_callback_query().get_data()
+
+    bot.answerCallbackQuery(
+        update.get_callback_query().get_id(),
+        text='Callback data received: {}'.format(callback_data))
+
+    bot.editMessageText(
+        "Oggetto restituito!",
+        chat_id=query.get_chat().get_id(),
+        message_id=query.get_message().message_id)
+    bot.editMessageReplyMarkup(
+        reply_markup=None,
+        chat_id=query.get_chat(),
+        message_id=query.get_message())
