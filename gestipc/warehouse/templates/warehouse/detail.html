@@ -41,13 +41,27 @@
   <table class="table">
     <thead>
       <tr>
+        <th scope="col">N prestito</th>
         <th scope="col">Assegnatario</th>
         <th scope="col">Data uscita</th>
         <th scope="col">Data rientro</th>
       </tr>
     </thead>
     <tbody>
-
+      {% for x in loans %}
+      <a href="/">
+      <tr>
+        <th scope="row">
+          <a href="loan/{{x.id}}">{{x.id}}</a>
+        </th>
+        <th>
+          <a class="btn" href="/hr/user/{{x.fkuser.id}}"><img class="profile-picture" src="{% if x.fkuser.profile.profile_picture %}{% static x.fkuser.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"> {{x.fkuser.last_name}} {{x.fkuser.first_name}}</a>
+        </th>
+        <th>{{x.loan_date}}</th>
+        <th>{{x.return_date}}</th>
+      </tr>
+    </a>
+      {% endfor %}
     </tbody>
   </table>
 
@@ -60,7 +74,7 @@
     <form method="post" class="form" action="assign">
     <div class="modal-content">
       <div class="modal-header">
-        <h1 class="modal-title fs-5" id="loanModalLabel">Assegna oggetto a volontario</h1>
+        <h1 class="modal-title fs-5" id="loanModalLabel">Assegna oggetto a x</h1>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
       </div>
       <div class="modal-body">

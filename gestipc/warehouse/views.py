@@ -22,10 +22,12 @@ def inventory_detail(request, id):
     inventory_item = get_object_or_404(InventoryItem, id=id)
     user_queryset = User.objects.all()
     user_form = UserMultipleChoiceForm(user_queryset=user_queryset)
+    loans = Loan.objects.filter(fkinventory_item=inventory_item)
 
     return render(request, 'warehouse/detail.html', {"curpage": "warehouse",
                                                      "inv_item": inventory_item,
-                                                     "user_form": user_form})
+                                                     "user_form": user_form,
+                                                     "loans": loans})
 
 
 @login_required
