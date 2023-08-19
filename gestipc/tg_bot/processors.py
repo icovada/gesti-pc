@@ -1,6 +1,6 @@
 from django_tgbot.decorators import processor
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django_tgbot.state_manager import message_types, update_types, state_types
 from django_tgbot.types.update import Update
 from django_tgbot.types.inlinekeyboardmarkup import InlineKeyboardMarkup
@@ -60,9 +60,9 @@ def new_item_loaned_to_user(bot: TelegramBot, tg_user: TelegramUser, instance: L
         "Premi qui per riconsegnare",
         reply_markup=InlineKeyboardMarkup.a(inline_keyboard=[
             [InlineKeyboardButton.a(
-            text="Riconsegna", callback_data="item_return")]
+                text="Riconsegna", callback_data="item_return")]
         ]))
-    
+
     return msg
 
 
@@ -77,10 +77,10 @@ def return_loaned_item(bot: TelegramBot, update, state):
         assert callback_data == "item_return"
     except AssertionError:
         return
-    
+
     loan = Loan.objects.get(
         notification_message=messageid,
-        fkuser__profile__telegram_user__telegram_id = userid
+        fkuser__profile__telegram_user__telegram_id=userid
     )
 
     bot.answerCallbackQuery(
@@ -96,6 +96,21 @@ def return_loaned_item(bot: TelegramBot, update, state):
 
     if not approval:
         message += "\n\nIn attesa di approvazione dal magazziniere"
+
+        warehouse_group = Group.objects.get(name="Magazziniere")
+
+        for user in warehouse_group.user_set.all():
+            if user.profile.telegram_user is None:
+                continue
+
+            bot.sendMessage(
+                chat_id=user.profile.telegram_user.telegram_id,
+                text=f"{loan.fkuser.first_name} {loan.fkuser.last_name} ha riportato {loan.fkinventory_item.brand} {loan.fkinventory_item.model}. Confermi?",
+                reply_markup=InlineKeyboardMarkup.a(inline_keyboard=[
+                    [InlineKeyboardButton.a(
+                        text="✅ Sì", callback_data=f"return-confirm-{loan.id}-{loan.notification_message}")]
+                ])
+            )
 
     bot.editMessageText(
         message,
