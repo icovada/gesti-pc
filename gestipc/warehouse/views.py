@@ -1,12 +1,12 @@
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.models import User
-from django.http.response import HttpResponseNotAllowed, HttpResponseRedirect, HttpResponse
+from django.http.response import HttpResponseNotAllowed, HttpResponseRedirect, HttpResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
 
 # Create your views here.
 from core.forms import UserMultipleChoiceForm
-from .models import InventoryItem
+from .models import InventoryItem, Loan
 from .forms import InventoryItemForm, InventoryItemEditForm
 
 
@@ -63,3 +63,29 @@ def inventory_item_create(request):
 
     else:
         return HttpResponseNotAllowed
+
+
+@login_required
+def inventory_assign(request, id: int):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(permitted_methods=["POST"])
+
+    try:
+        assert "warehouse.add_loan" in request.user.get_group_permissions(
+        ), "L'utente non ha i permessi di assegnare un oggetto"
+    except AssertionError as permission_error:
+        return HttpResponseForbidden(content=permission_error)
+
+    thisloan = Loan(
+        fkinventory_item=get_object_or_404(InventoryItem, id=id),
+        fkuser=request.user,
+    )
+
+    thisloan.save()
+
+    return HttpResponseRedirect(reverse("warehouse_loan_detail", args=[id, thisloan.id]))
+
+
+@login_required
+def loan_detail(request, id: int, loanid: int):
+    return HttpResponse("ciao bro")

@@ -17,7 +17,7 @@ class InventoryItem(models.Model):
     notes = models.TextField(verbose_name="Note aggiuntive")
 
 
-class Loans(models.Model):
+class Loan(models.Model):
     fkinventory_item = models.ForeignKey(InventoryItem, models.CASCADE)
     fkuser = models.ForeignKey(User, on_delete=models.PROTECT)
     loan_date = models.DateTimeField(default=timezone.now)

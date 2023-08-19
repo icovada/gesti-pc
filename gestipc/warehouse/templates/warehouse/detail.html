@@ -57,7 +57,7 @@
 <!-- Modal -->
 <div class="modal fade" id="loanModal" tabindex="-1" aria-labelledby="loanModalLabel" aria-hidden="true">
   <div class="modal-dialog">
-    <form method="post" class="form">
+    <form method="post" class="form" action="assign">
     <div class="modal-content">
       <div class="modal-header">
         <h1 class="modal-title fs-5" id="loanModalLabel">Assegna oggetto a volontario</h1>
@@ -65,7 +65,6 @@
       </div>
       <div class="modal-body">
           {% csrf_token %}
-        
           {% bootstrap_form user_form %}
         
           
