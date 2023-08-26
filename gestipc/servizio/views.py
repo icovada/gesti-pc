@@ -22,7 +22,7 @@ def main(request):
         .values("count")
     )
     servizi = Servizio.objects.order_by("-begin_date").annotate(
-        total_response=Subquery(total_response), total_acks=Subquery(total_acks)
+        total_responses=Subquery(total_response), total_acks=Subquery(total_acks)
     )
     return render(
         request, "servizio/main.html", {"curpage": "servizi", "servizi": servizi}

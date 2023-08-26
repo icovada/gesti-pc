@@ -35,7 +35,7 @@
       {% for response in responses %}
       <tr>
         <th scope="row">
-          <a href="{% url 'hr:userprofile' id=response.fkuser.id %}"><img class="profile-picture" src="{% static response.fkuser.profile.profile_picture %}" alt="Avatar"></a>
+          <a href="{% url 'hr:userpage' id=response.fkuser.id %}"><img class="profile-picture" src="{% static response.fkuser.profile.profile_picture %}" alt="Avatar"></a>
         </th>
         <td>{{ response.fkuser.last_name }}</td>
         <td>{{ response.fkuser.first_name }}</td>
