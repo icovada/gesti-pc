@@ -121,8 +121,10 @@ def return_loaned_item(bot: TelegramBot, update, state):
             if user.profile.telegram_user is None:
                 continue
 
-            msg_txt = f"{loan.fkuser.first_name} {loan.fkuser.last_name} ha "
-            f"riportato {loan.fkinventory_item.brand} {loan.fkinventory_item.model}. Confermi?",
+            msg_txt = (
+                f"{loan.fkuser.first_name} {loan.fkuser.last_name} ha "
+                f"riportato {loan.fkinventory_item.brand} {loan.fkinventory_item.model}. Confermi?",
+            )
 
             bot.sendMessage(
                 chat_id=user.profile.telegram_user.telegram_id,
