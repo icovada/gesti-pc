@@ -115,7 +115,7 @@ def inventory_assign(request, id: int):
     thisloan.save()
 
     return HttpResponseRedirect(
-        reverse("warehouse_loan_detail", args=[id, thisloan.id])
+        reverse("warehouse:loan_detail", args=[id, thisloan.id])
     )
 
 

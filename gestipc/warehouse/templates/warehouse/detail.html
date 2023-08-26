@@ -67,7 +67,7 @@
 <!-- Modal -->
 <div class="modal fade" id="loanModal" tabindex="-1" aria-labelledby="loanModalLabel" aria-hidden="true">
   <div class="modal-dialog">
-    <form method="post" class="form" action="{% url 'warehouse:item_assign' %}">
+    <form method="post" class="form" action="{% url 'warehouse:item_assign' id=inv_item.id %}">
     <div class="modal-content">
       <div class="modal-header">
         <h1 class="modal-title fs-5" id="loanModalLabel">Assegna oggetto a x</h1>

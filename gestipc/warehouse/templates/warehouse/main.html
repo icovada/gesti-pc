@@ -23,7 +23,7 @@
       {% for item in warehouse_items %}
       <tr>
         <th scope="row">
-          <a href="{% url 'warehouse:item_detail' %}">{% if item.picture %}<img class="profile-picture" src="{% static item.picture %}" alt="Avatar">
+          <a href="{% url 'warehouse:item_detail' id=item.id %}">{% if item.picture %}<img class="profile-picture" src="{% static item.picture %}" alt="Avatar">
           {% else %}
           <i class="fa-solid fa-camera fa-xl"></i>
           {% endif %}
