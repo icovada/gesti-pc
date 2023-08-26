@@ -78,9 +78,13 @@ def inventory_assign(request, id: int):
     except AssertionError as permission_error:
         return HttpResponseForbidden(content=permission_error)
 
+
+    assignee_id = request.POST['user']
+    assignee_obj = get_object_or_404(User, id=assignee_id)
+
     thisloan = Loan(
         fkinventory_item=get_object_or_404(InventoryItem, id=id),
-        fkuser=request.user,
+        fkuser=assignee_obj,
     )
 
     thisloan.save()
