@@ -90,7 +90,7 @@ def return_loaned_item(bot: TelegramBot, update, state):
         update.get_callback_query().get_id(),
         text='Elaborazione in corso...')
 
-    approval = "can_approve_return" in loan.fkuser.get_user_permissions()
+    approval = "warehouse.can_approve_return" in loan.fkuser.get_user_permissions()
     loan.return_date = timezone.now()
     loan.warehouse_staff_approved = approval
     loan.save()
