@@ -21,3 +21,4 @@ class ServizioResponse(models.Model):
     fkuser = models.ForeignKey(User, on_delete=models.PROTECT)
     response = models.CharField(max_length=10, choices=ResponseEnum.choices)
     last_update = models.DateTimeField(default=timezone.now)
+    poll_id = models.PositiveBigIntegerField(null=True, blank=True)

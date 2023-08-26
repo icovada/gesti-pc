@@ -44,13 +44,16 @@ def detail(request, id):
 
 def new(request):
     if request.method == "POST":
-        Servizio.objects.create(
+        servizio = Servizio.objects.create(
             begin_date=f"{request.POST['begin_date']} {request.POST['begin_time']}",
             location=request.POST["location"],
             created_by=request.user,
         )
 
-        nuovo_servizio_callback(bot)
+        poll_id = nuovo_servizio_callback(bot, servizio)
+
+        servizio.poll_id = poll_id
+        servizio.save()
 
         return redirect(main)
     else:

@@ -7,6 +7,7 @@ from django_tgbot.types.inlinekeyboardbutton import InlineKeyboardButton
 from django_tgbot.types.inlinekeyboardmarkup import InlineKeyboardMarkup
 from django_tgbot.types.update import Update
 from hr.models import TelegramLink
+from servizio.models import Servizio
 from warehouse.models import Loan
 
 from .bot import TelegramBot, state_manager
@@ -49,13 +50,16 @@ def registration_complete(bot: TelegramBot, user):
     )
 
 
-def nuovo_servizio_callback(bot: TelegramBot):
-    for user in User.objects.all():
-        if user.profile.telegram_user is not None:
-            bot.sendPoll(user.pro)
-            bot.sendMessage(
-                user.profile.telegram_user.telegram_id, "Nuovo servizio creato, ci sei?"
-            )
+def nuovo_servizio_callback(bot: TelegramBot, instance: Servizio) -> int:
+    poll = bot.sendPoll(
+        settings.GROUP_CHAT_ID,
+        question=f"Nuovo servizio il {instance.begin_date}.\n Confermi dispobilità?",
+        options=["Sì", "No"],
+        is_anonymous=False,
+        close_date=instance.begin_date,
+    )
+
+    return poll.poll.id
 
 
 def new_item_loaned_to_user(bot: TelegramBot, tg_user: TelegramUser, instance: Loan):
