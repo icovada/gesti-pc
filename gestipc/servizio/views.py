@@ -55,6 +55,6 @@ def new(request):
         servizio.poll_id = poll_id
         servizio.save()
 
-        return redirect(main)
+        return redirect("servizio:home")
     else:
         return render(request, "servizio/new.html", {"curpage": "servizi"})

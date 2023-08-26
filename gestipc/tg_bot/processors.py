@@ -7,7 +7,7 @@ from django_tgbot.types.inlinekeyboardbutton import InlineKeyboardButton
 from django_tgbot.types.inlinekeyboardmarkup import InlineKeyboardMarkup
 from django_tgbot.types.update import Update
 from hr.models import TelegramLink
-from servizio.models import Servizio
+from servizio.models import Servizio, ServizioResponse
 from warehouse.models import Loan
 
 from .bot import TelegramBot, state_manager
@@ -54,7 +54,7 @@ def nuovo_servizio_callback(bot: TelegramBot, instance: Servizio) -> int:
     poll = bot.sendPoll(
         settings.GROUP_CHAT_ID,
         question=f"Nuovo servizio il {instance.begin_date}.\n Confermi dispobilità?",
-        options=["Sì", "No"],
+        options=["Sì", "Forse", "No"],
         is_anonymous=False,
         close_date=instance.begin_date,
     )
@@ -200,3 +200,45 @@ def confirm_return_item(bot: TelegramBot, update, state):
         chat_id=loan.fkuser.profile.telegram_user.telegram_id,
         message_id=loan.notification_message,
     )
+
+
+@processor(
+    state_manager,
+    from_states=state_types.All,
+    update_types=[update_types.PollAnswer],
+)
+def manage_poll_answer_servizio(bot: TelegramBot, update, state):
+    """Receive Poll answers for Servizio polls"""
+
+    poll_id = update.poll_answer.poll_id
+    user = update.poll_answer.get_user()
+    answer = update.poll_answer.option_ids[0]
+
+    try:
+        servizio = Servizio.objects.get(poll_id=int(poll_id))
+    except Servizio.DoesNotExist:
+        return
+
+    try:
+        user_instance = User.objects.get(profile__telegram_user__telegram_id=user.id)
+    except User.DoesNotExist:
+        bot.sendMessage(
+            settings.GROUP_CHAT_ID,
+            text=f"@{user.username} non sei registrato al sito! La tua risposta non è stata formalizzata\n"
+            "Apri una chat con questo bot e manda il comando /register",
+        )
+        return
+
+    response_mapping = [
+        ServizioResponse.ResponseEnum.ACCEPTED,
+        ServizioResponse.ResponseEnum.MAYBE,
+        ServizioResponse.ResponseEnum.REFUSED,
+    ]
+
+    answer_enum = response_mapping[answer]
+
+    servizio_response = ServizioResponse(
+        fkservizio=servizio, fkuser=user_instance, response=answer_enum
+    )
+
+    servizio_response.save()
