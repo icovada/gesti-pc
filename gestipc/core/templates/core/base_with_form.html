@@ -1,4 +1,4 @@
-{% extends 'core/style.html' %}
+{% extends "core/style.html" %}
 
 {% load django_bootstrap5 %}
 {% load static %}
@@ -10,12 +10,12 @@
   {% bootstrap_messages %}
   <form method="post" class="form">
     {% csrf_token %}
-  
+
     {% bootstrap_form form %}
-  
+
     {% bootstrap_button button_type="submit" content="OK" %}
     {% bootstrap_button button_type="reset" content="Cancel" %}
-  
+
   </form>
 
 </div>

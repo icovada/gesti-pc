@@ -1,4 +1,4 @@
-{% extends 'core/style.html' %}
+{% extends "core/style.html" %}
 
 {% load static %}
 
@@ -6,19 +6,19 @@
 
 <div class="container">
 
-  <h1 class="my-5">Servizio n {{servizio.id}}</h1>
+  <h1 class="my-5">Servizio n {{ servizio.id }}</h1>
   <div class="container">
     <div class="row g-4 py-2 row-cols-1 row-cols-lg-2">
       <div class="feature col">
         <h3 class="text-body-emphasis">Data e ora</h3>
-        <p>{{servizio.begin_date}}</p>
+        <p>{{ servizio.begin_date }}</p>
       </div>
       <div class="feature col">
         <h3 class="text-body-emphasis">Luogo</h3>
-        <p>{{servizio.location}}</p>
+        <p>{{ servizio.location }}</p>
       </div>
     </div>
-    
+
   </div>
   <h1 class="my-5">Partecipanti</h1>
   <table class="table">
@@ -35,18 +35,16 @@
       {% for response in responses %}
       <tr>
         <th scope="row">
-          <a href="/hr/user/{{response.fkuser.id}}"><img class="profile-picture" src="{% static response.fkuser.profile.profile_picture %}" alt="Avatar"></a>
+          <a href="{% url 'hr:userprofile' id=response.fkuser.id %}"><img class="profile-picture" src="{% static response.fkuser.profile.profile_picture %}" alt="Avatar"></a>
         </th>
-        <td>{{response.fkuser.last_name}}</td>
-        <td>{{response.fkuser.first_name}}</td>
-        <td class="response-{{response.response}}">{{response.get_response_display}}</td>
-        <td>{{response.last_update}}</td>
+        <td>{{ response.fkuser.last_name }}</td>
+        <td>{{ response.fkuser.first_name }}</td>
+        <td class="response-{{ response.response }}">{{ response.get_response_display }}</td>
+        <td>{{ response.last_update }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-
-
 
 </div>
 {% endblock body %}

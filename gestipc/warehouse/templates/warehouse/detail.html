@@ -1,4 +1,4 @@
-{% extends 'core/style.html' %}
+{% extends "core/style.html" %}
 {% load django_bootstrap5 %}
 
 {% load static %}
@@ -11,10 +11,10 @@
     <div class="row row-cols-1 row-cols-lg-2">
       <div class="col col-12 col-lg-3"><img class="profile-picture-big" src="{% static inv_item.picture %}" alt="Avatar"></div>
       <div class="col col-9 col-lg-7 d-flex flex-column">
-        <div class="px-3"><h1>{{inv_item.brand}} {{inv_item.model}}</h1></div>
-        <div class="px-3"><h4>{{inv_item.kind}}</h4>
+        <div class="px-3"><h1>{{ inv_item.brand }} {{ inv_item.model }}</h1></div>
+        <div class="px-3"><h4>{{ inv_item.kind }}</h4>
             {% for i in inv_item.conditions|times %}
-            <i class="fa-solid fa-star fa-sm" style="color: #e01b24;"></i>
+            <i class="fa-solid fa-star fa-sm text-danger"></i>
             {% endfor %}
         </div>
       </div>
@@ -26,13 +26,12 @@
     </div>
   </div>
 
-  
   <div class="container user-profile">
     <div class="row g-4 py-2 row-cols-1 row-cols-lg-2">
       {% for key, value in inv_item.items %}
       <div class="feature col">
-        <h3 class="fs-4 text-body-emphasis">{{key}}</h3>
-        <p>{{value}}</p>
+        <h3 class="fs-4 text-body-emphasis">{{ key }}</h3>
+        <p>{{ value }}</p>
       </div>
       {% endfor %}
     </div>
@@ -49,29 +48,26 @@
     </thead>
     <tbody>
       {% for x in loans %}
-      <a href="/">
       <tr>
         <th scope="row">
-          <a href="loan/{{x.id}}">{{x.id}}</a>
+          <a href="{% url 'warehouse:loan_detail' id=inv_item.id loanid=x.id %}">{{ x.id }}</a>
         </th>
         <th>
-          <a class="btn" href="/hr/user/{{x.fkuser.id}}"><img class="profile-picture" src="{% if x.fkuser.profile.profile_picture %}{% static x.fkuser.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"> {{x.fkuser.last_name}} {{x.fkuser.first_name}}</a>
+          <a class="btn" href="{% url 'hr:userpage' id=x.fkuser.id %}"><img class="profile-picture" src="{% if x.fkuser.profile.profile_picture %}{% static x.fkuser.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"> {{ x.fkuser.last_name }} {{ x.fkuser.first_name }}</a>
         </th>
-        <th>{{x.loan_date}}</th>
-        <th>{{x.return_date}}</th>
+        <th>{{ x.loan_date }}</th>
+        <th>{{ x.return_date }}</th>
       </tr>
-    </a>
       {% endfor %}
     </tbody>
   </table>
 
 </div>
 
-
 <!-- Modal -->
 <div class="modal fade" id="loanModal" tabindex="-1" aria-labelledby="loanModalLabel" aria-hidden="true">
   <div class="modal-dialog">
-    <form method="post" class="form" action="assign">
+    <form method="post" class="form" action="{% url 'warehouse:item_assign' %}">
     <div class="modal-content">
       <div class="modal-header">
         <h1 class="modal-title fs-5" id="loanModalLabel">Assegna oggetto a x</h1>
@@ -80,12 +76,11 @@
       <div class="modal-body">
           {% csrf_token %}
           {% bootstrap_form user_form %}
-        
-          
+
         </div>
         <div class="modal-footer">
           {% bootstrap_button button_type="reset" content="Annulla" button_class="btn-danger" %}
-          {% bootstrap_button button_type="submit" content="OK"  %}
+          {% bootstrap_button button_type="submit" content="OK" %}
         </div>
       </div>
     </form>

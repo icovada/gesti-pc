@@ -1,11 +1,11 @@
-{% extends 'core/style.html' %}
+{% extends "core/style.html" %}
 
 {% load static %}
 
 {% block body %}
 <div class="container">
   <h1 class="my-5">Servizi
-    <a href="/servizio/new" class="btn btn-success floatright">Crea servizio</a>
+    <a href="{% url 'servizio:new' %}" class="btn btn-success floatright">Crea servizio</a>
   </h1>
   <table class="table">
     <thead>
@@ -20,16 +20,15 @@
       {% for servizio in servizi %}
       <tr>
         <th scope="row">
-          <a href="/servizio/{{servizio.id}}">{{servizio.id}}</a>
+          <a href="{% url 'servizio:detail' id=servizio.id %}">{{ servizio.id }}</a>
         </th>
-        <td>{{servizio.begin_date}}</td>
-        <td>{{servizio.location}}</td>
-        <td>{{servizio.total_acks}} / {{servizio.total_response}}
+        <td>{{ servizio.begin_date }}</td>
+        <td>{{ servizio.location }}</td>
+        <td>{{ servizio.total_acks }} / {{ servizio.total_response }}
       </tr>
       {% endfor %}
     </tbody>
   </table>
-
 
 </div>
 {% endblock body %}

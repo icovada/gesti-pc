@@ -1,8 +1,9 @@
 from django_tgbot.bot import AbstractTelegramBot
 from django_tgbot.state_manager.state_manager import StateManager
 from django_tgbot.types.update import Update
+
 from . import bot_token
-from .models import TelegramUser, TelegramChat, TelegramState
+from .models import TelegramChat, TelegramState, TelegramUser
 
 
 class TelegramBot(AbstractTelegramBot):
@@ -16,17 +17,23 @@ class TelegramBot(AbstractTelegramBot):
         return TelegramChat.objects.get_or_create(telegram_id=telegram_id)[0]
 
     def get_db_state(self, db_user, db_chat):
-        return TelegramState.objects.get_or_create(telegram_user=db_user, telegram_chat=db_chat)[0]
+        return TelegramState.objects.get_or_create(
+            telegram_user=db_user, telegram_chat=db_chat
+        )[0]
 
     def pre_processing(self, update: Update, user, db_user, chat, db_chat, state):
-        super(TelegramBot, self).pre_processing(update, user, db_user, chat, db_chat, state)
+        super(TelegramBot, self).pre_processing(
+            update, user, db_user, chat, db_chat, state
+        )
 
     def post_processing(self, update: Update, user, db_user, chat, db_chat, state):
-        super(TelegramBot, self).post_processing(update, user, db_user, chat, db_chat, state)
+        super(TelegramBot, self).post_processing(
+            update, user, db_user, chat, db_chat, state
+        )
 
 
 def import_processors():
-    from . import processors
+    from . import processors  # noqa
 
 
 state_manager = StateManager()

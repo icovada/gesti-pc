@@ -1,7 +1,10 @@
 from django.db import models
 from django.db.models import CASCADE
-
-from django_tgbot.models import AbstractTelegramUser, AbstractTelegramChat, AbstractTelegramState
+from django_tgbot.models import (
+    AbstractTelegramChat,
+    AbstractTelegramState,
+    AbstractTelegramUser,
+)
 
 
 class TelegramUser(AbstractTelegramUser):
@@ -13,9 +16,20 @@ class TelegramChat(AbstractTelegramChat):
 
 
 class TelegramState(AbstractTelegramState):
-    telegram_user = models.ForeignKey(TelegramUser, related_name='telegram_states', on_delete=CASCADE, blank=True, null=True)
-    telegram_chat = models.ForeignKey(TelegramChat, related_name='telegram_states', on_delete=CASCADE, blank=True, null=True)
+    telegram_user = models.ForeignKey(
+        TelegramUser,
+        related_name="telegram_states",
+        on_delete=CASCADE,
+        blank=True,
+        null=True,
+    )
+    telegram_chat = models.ForeignKey(
+        TelegramChat,
+        related_name="telegram_states",
+        on_delete=CASCADE,
+        blank=True,
+        null=True,
+    )
 
     class Meta:
-        unique_together = ('telegram_user', 'telegram_chat')
-
+        unique_together = ("telegram_user", "telegram_chat")

@@ -1,4 +1,4 @@
-{% extends 'core/style.html' %}
+{% extends "core/style.html" %}
 
 {% load static %}
 
@@ -18,16 +18,15 @@
       {% for volontario in users %}
       <tr>
         <th scope="row">
-          <a href="/hr/user/{{volontario.id}}"><img class="profile-picture" src="{% if volontario.profile.profile_picture %}{% static volontario.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"></a>
+          <a href="{% url 'hr:userprofile' id=volontario.id %}"><img class="profile-picture" src="{% if volontario.profile.profile_picture %}{% static volontario.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"></a>
         </th>
-        <td>{{volontario.last_name}}</td>
-        <td>{{volontario.first_name}}</td>
-        <td>{% for role in user.groups.all %}{{role}}{% if not forloop.last %}, {% else %}{% endif %}{% endfor %}</td>
+        <td>{{ volontario.last_name }}</td>
+        <td>{{ volontario.first_name }}</td>
+        <td>{% for role in user.groups.all %}{{ role }}{% if not forloop.last %}, {% else %}{% endif %}{% endfor %}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-
 
 </div>
 {% endblock body %}

@@ -1,8 +1,13 @@
 from django.contrib import admin
 
+from .models import (
+    PersonalEquipmentAssignmentDetail,
+    PersonalEquipmentType,
+    TelegramLink,
+)
+
 # Register your models here.
 
-from .models import TelegramLink, PersonalEquipmentType, PersonalEquipmentAssignmentDetail
 
 admin.site.register(TelegramLink)
 admin.site.register(PersonalEquipmentType)

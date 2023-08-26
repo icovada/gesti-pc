@@ -5,6 +5,7 @@
 
 <head>
   <script src="{% static 'assets/js/color-modes.js' %}"></script>
+  <meta name="keywords" content="protezione,civile,gestionale">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="">
@@ -169,12 +170,11 @@
     </ul>
   </div>
 
-
   <header>
     <!-- Fixed navbar -->
     <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-primary">
       <div class="container-fluid">
-        <a class="navbar-brand" href="/">
+        <a class="navbar-brand" href="{% url 'home' %}">
           <img src="{% static "/assets/brand/pc-logo.svg" %}" width="35" height="35" alt="">
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"
@@ -184,23 +184,23 @@
         <div class="collapse navbar-collapse" id="navbarCollapse">
           <ul class="navbar-nav me-auto mb-2 mb-md-0">
             <li class="nav-item">
-              <a class="nav-link {% if curpage == "volontari" %}active{% endif %}" href="/hr">Volontari</a>
+              <a class="nav-link {% if curpage == "volontari" %}active{% endif %}" href="{% url 'hr:home' %}">Volontari</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link {% if curpage == "warehouse" %}active{% endif %}" href="/warehouse">Magazzino</a>
+              <a class="nav-link {% if curpage == "warehouse" %}active{% endif %}" href="{% url 'warehouse:home' %}">Magazzino</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link {% if curpage == "servizi" %}active{% endif %}" href="/servizio">Servizi</a>
+              <a class="nav-link {% if curpage == "servizi" %}active{% endif %}" href="{% url 'servizio:home' %}">Servizi</a>
             </li>
           </ul>
           <ul class="nav navbar-nav navbar-right">
             <div class="dropdown">
               <a class="nav-link dropdown-toggle active" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <img class="profile-picture-small mx-3" src="{% if user.profile.profile_picture|length > 0 %}{% static user.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"> {{user.first_name}} {{user.last_name}}
+                <img class="profile-picture-small mx-3" height=35 width=35 alt="logo" src="{% if user.profile.profile_picture|length > 0 %}{% static user.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"> {{ user.first_name }} {{ user.last_name }}
               </a>
               <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="/hr/user/{{user.id}}">Il mio profilo</a></li>
-                <li><a class="dropdown-item" href="/accounts/logout">Esci</a></li>
+                <li><a class="dropdown-item" href="{% url 'hr:userpage' id=user.id %}">Il mio profilo</a></li>
+                <li><a class="dropdown-item" href="{% url 'logout' %}">Esci</a></li>
               </ul>
             </div>
           </ul>
@@ -220,7 +220,7 @@
           class="small">main &gt; .container</code>.</p>
       <p>Back to <a href="../examples/sticky-footer/">the default sticky footer</a> minus the navbar.</p>
     </div>
-    {% endblock %}
+    {% endblock body %}
   </main>
 
   <footer class="footer mt-auto py-3 bg-body-tertiary">
