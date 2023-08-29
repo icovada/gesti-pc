@@ -63,7 +63,7 @@ def inventory_detail_edit(request, id):
             item = inv_item_form.save()
 
             return HttpResponseRedirect(
-                reverse("warehouse_item_detail", args=[item.id])
+                reverse("warehouse:item_detail", args=[item.id])
             )
 
     else:
@@ -85,7 +85,7 @@ def inventory_item_create(request):
             item = inv_item_form.save()
 
             return HttpResponseRedirect(
-                reverse("warehouse_item_detail", args=[item.id])
+                reverse("warehouse:item_detail", args=[item.id])
             )
 
     else:
