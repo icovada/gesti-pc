@@ -18,7 +18,7 @@
       {% for volontario in users %}
       <tr>
         <th scope="row">
-          <a href="{% url 'hr:userprofile' id=volontario.id %}"><img class="profile-picture" src="{% if volontario.profile.profile_picture %}{% static volontario.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"></a>
+          <a href="{% url 'hr:userpage' id=volontario.id %}"><img class="profile-picture" src="{% if volontario.profile.profile_picture %}{% static volontario.profile.profile_picture %}{% else %}{% static 'assets/images/nouser.png' %}{% endif %}" alt="Avatar"></a>
         </th>
         <td>{{ volontario.last_name }}</td>
         <td>{{ volontario.first_name }}</td>
