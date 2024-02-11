@@ -22,7 +22,7 @@
         </th>
         <td>{{ volontario.last_name }}</td>
         <td>{{ volontario.first_name }}</td>
-        <td>{% for role in user.groups.all %}{{ role }}{% if not forloop.last %}, {% else %}{% endif %}{% endfor %}</td>
+        <td>{% for role in volontario.groups.all %}<div class="patch">{{ role }}</div>{% endfor %}</td>
       </tr>
       {% endfor %}
     </tbody>
