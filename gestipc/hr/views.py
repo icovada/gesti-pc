@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.shortcuts import render
+from django.db.models.fields import Field
 from hr.models import PersonalEquipmentAssignmentDetail, PersonalEquipmentType
 from tg_bot.bot import bot
 from tg_bot.processors import registration_complete
@@ -26,7 +27,7 @@ def detail_page(request, id):
     profile_dict = {
         x.verbose_name: getattr(userprofile, x.name)
         for x in profile_fields
-        if x.name not in exclude
+        if x.name not in exclude and isinstance(x, Field)
     }
 
     all_equipment = PersonalEquipmentType.objects.order_by("kind").all()
@@ -40,6 +41,8 @@ def detail_page(request, id):
         (x.kind, all_equipment_dict[x.kind]) for x in all_equipment
     ]
 
+    all_certs = userprofile.trainingenrollment_set.filter(training_completed=True)
+
     return render(
         request,
         "hr/profile.html",
@@ -48,6 +51,7 @@ def detail_page(request, id):
             "user": user,
             "profile": profile_dict,
             "equipment": personal_equipment_sorted,
+            "certifications": all_certs,
         },
     )
 

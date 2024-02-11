@@ -30,6 +30,14 @@
     </div>
   </div>
 
+  <div class="fs-2 mt-5">Certificazioni</div>
+
+  <ul class="list">
+    {% for certification in certifications %}
+    <li>{{ certification.fktrainingcourse.fkcertification.name }}</li>
+    {% endfor %}
+  </ul>
+
   <div class="fs-2 mt-5">Attrezzatura</div>
 
   <table class="table">
