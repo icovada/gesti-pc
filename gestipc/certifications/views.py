@@ -14,3 +14,14 @@ def main(request):
         "certifications/main.html",
         {"curpage": "certifications", "certifications": all_certs},
     )
+
+
+@login_required
+def detail_page(request, id):
+    "Show home"
+    raise NotImplementedError
+    # return render(
+    #     request,
+    #     "certifications/main.html",
+    #     {"curpage": "certifications", "certifications": all_certs},
+    # )

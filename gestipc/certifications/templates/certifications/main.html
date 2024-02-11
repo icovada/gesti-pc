@@ -17,10 +17,10 @@
             {% for certification in certifications %}
             <tr>
                 <th scope="row">
-                    <a href="{% url 'certifications:detail' id=certification.id %}">
+                    <a href="{% url 'certifications:detail' id=certification.id %}">{{ certification.id }}
                 </th>
                 <td>{{ certification.name }}</td>
-                <td>{{ certification.certified_volunteers }}</td>
+                <td>{{ certification.certified_users }}</td>
             </tr>
             {% endfor %}
         </tbody>

@@ -1,10 +1,20 @@
 from django.db import models
+from core.models import Profile
 from hr.models import PersonalEquipmentType
 
 
 # Create your models here.
 class Certification(models.Model):
     name = models.CharField(max_length=50, verbose_name="Nome")
+
+    def certified_users(self):
+        "Returns QuerySet of users with this certification"
+
+        return (
+            TrainingEnrollment.objects.filter(fktrainingcourse__fkcertification=self)
+            .filter(training_completed=True)
+            .count()
+        )
 
 
 class TrainingCourse(models.Model):
@@ -28,6 +38,11 @@ class TrainingClass(models.Model):
     equipment_required = models.ManyToManyField(
         PersonalEquipmentType,
         verbose_name="Equipaggiamento richiesto",
-        null=True,
         blank=True,
     )
+
+
+class TrainingEnrollment(models.Model):
+    fktrainingcourse = models.ForeignKey(TrainingCourse, on_delete=models.CASCADE)
+    fkuserprofile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    training_completed = models.BooleanField()
