@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "core",
     "servizio",
     "warehouse",
+    "certifications",
 ]
 
 MIDDLEWARE = [
