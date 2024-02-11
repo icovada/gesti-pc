@@ -40,3 +40,21 @@ table tr>* {
 .response-tentative::before{
     content: '❓ ';
 }
+
+.patch {
+    margin: 5px;
+    padding: 12px;
+    color: #cbff70;
+    font-family: sans;
+    font-weight: bold;
+    text-transform: uppercase;
+    outline: 4px solid #cbff70;
+    outline-offset: -7px;
+    background-color: black;
+    box-shadow: 2px 2px 5px #030303;
+    width: 200px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
