@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+from .models import Certification
 
 # Create your views here.
 
@@ -7,4 +8,9 @@ from django.shortcuts import render
 @login_required
 def main(request):
     "Show home"
-    return render(request, "core/style.html", {"curpage": "certifications"})
+    all_certs = Certification.objects.all()
+    return render(
+        request,
+        "certifications/main.html",
+        {"curpage": "certifications", "certifications": all_certs},
+    )

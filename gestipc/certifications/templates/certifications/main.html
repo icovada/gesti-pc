@@ -1,0 +1,30 @@
+{% extends "core/style.html" %}
+
+{% load static %}
+
+{% block body %}
+<div class="container">
+    <h1 class="my-5">Lista certificazioni</h1>
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col"></th>
+                <th scope="col">Corso</th>
+                <th scope="col">Numero volontari certificati</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for certification in certifications %}
+            <tr>
+                <th scope="row">
+                    <a href="{% url 'certifications:detail' id=certification.id %}">
+                </th>
+                <td>{{ certification.name }}</td>
+                <td>{{ certification.certified_volunteers }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+{% endblock body %}
