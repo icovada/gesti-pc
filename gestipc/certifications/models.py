@@ -8,6 +8,7 @@ class Certification(models.Model):
 
 
 class TrainingCourse(models.Model):
+    fkcertification = models.ForeignKey(Certification, on_delete=models.RESTRICT)
     name = models.CharField(max_length=50, verbose_name="Nome")
     organizer = models.CharField(max_length=50, verbose_name="Organizzatore")
 
@@ -25,5 +26,8 @@ class TrainingClass(models.Model):
     )
     uniform_required = models.BooleanField(verbose_name="Divisa richiesta?")
     equipment_required = models.ManyToManyField(
-        PersonalEquipmentType, verbose_name="Equipaggiamento richiesto"
+        PersonalEquipmentType,
+        verbose_name="Equipaggiamento richiesto",
+        null=True,
+        blank=True,
     )
