@@ -25,6 +25,7 @@ urlpatterns = [
     path("hr/", include("hr.urls")),
     path("servizio/", include("servizio.urls")),
     path("warehouse/", include("warehouse.urls")),
+    path("certificazioni/", include("certifications.urls")),
     path("pcroncellobot/", include(tg_bot_urls)),
     path("", core.views.home, name="home"),
 ]
