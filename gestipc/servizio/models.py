@@ -31,3 +31,4 @@ class Timbratura(models.Model):
     fkuser = models.ForeignKey(User, on_delete=models.CASCADE)
     datetime_begin = models.DateTimeField(default=dt.now)
     datetime_end = models.DateTimeField(null=True, blank=True)
+    message_id = models.IntegerField()

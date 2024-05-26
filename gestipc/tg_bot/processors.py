@@ -5,13 +5,30 @@ from django_tgbot.decorators import processor
 from django_tgbot.state_manager import state_types, update_types, message_types
 from django_tgbot.types.inlinekeyboardbutton import InlineKeyboardButton
 from django_tgbot.types.inlinekeyboardmarkup import InlineKeyboardMarkup
+from django_tgbot.types.replykeyboardmarkup import ReplyKeyboardMarkup
+from django_tgbot.types.keyboardbutton import KeyboardButton
 from django_tgbot.types.update import Update
 from hr.models import TelegramLink
-from servizio.models import Servizio, ServizioResponse
+from servizio.models import Servizio, ServizioResponse, Timbratura
 from warehouse.models import Loan
 
 from .bot import TelegramBot, state_manager
 from .models import TelegramState, TelegramUser
+
+MAIN_KEYBOARD = ReplyKeyboardMarkup.a(
+    keyboard=[
+        [
+            KeyboardButton.a(text="Timbratura"),
+        ]
+    ]
+)
+
+
+def set_main_keyboard(bot: TelegramBot, user: TelegramUser):
+    bot.sendMessage(
+        chat_id=user.telegram_id,
+        reply_markup=MAIN_KEYBOARD,
+    )
 
 
 @processor(
@@ -42,9 +59,49 @@ def register(bot: TelegramBot, update: Update, state: TelegramState):
         bot.sendMessage(
             update.get_chat().get_id(),
             f"Comunica a Federico @ftabbo questo codice: {str(new_verification_token.id)}",
+            reply_markup=MAIN_KEYBOARD,
         )
+        # set_main_keyboard(bot, update.get_user().get_id())
     else:
-        bot.sendMessage(update.get_chat().get_id(), "Sei già registrato")
+        bot.sendMessage(
+            update.get_chat().get_id(), "Sei già registrato", reply_markup=MAIN_KEYBOARD
+        )
+
+
+@processor(
+    state_manager,
+    from_states=state_types.Reset,
+    message_types=message_types.Text,
+    success=state_types.Reset,
+    fail=state_types.Reset,
+)
+def timbra_inizio(bot: TelegramBot, update: Update, state: TelegramState):
+    if getattr(update.get_message(), "text", None) != "Timbratura":
+        return
+
+    userid = update.get_user().get_id()
+    tguser = TelegramUser.objects.get(telegram_id=userid)
+    currentuser = tguser.profile.fkuser  # noqa
+    servizio = Servizio.objects.first()
+    timbratura = Timbratura.objects.create(
+        fkservizio=servizio,
+        fkuser=currentuser,
+        message_id=update.get_message().get_message_id(),
+    )
+
+    bot.sendMessage(
+        update.get_chat().get_id(),
+        f"Timbrato inizio attività alle {timbratura.datetime_begin}",
+        reply_markup=InlineKeyboardMarkup.a(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton.a(
+                        text="Timbra fine servizio", callback_data=str(timbratura.id)
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 def registration_complete(bot: TelegramBot, user):
