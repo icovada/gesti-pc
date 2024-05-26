@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib.auth.models import Group, User
 from django.utils import timezone
 from django_tgbot.decorators import processor
-from django_tgbot.state_manager import state_types, update_types
+from django_tgbot.state_manager import state_types, update_types, message_types
 from django_tgbot.types.inlinekeyboardbutton import InlineKeyboardButton
 from django_tgbot.types.inlinekeyboardmarkup import InlineKeyboardMarkup
 from django_tgbot.types.update import Update
@@ -14,13 +14,13 @@ from .bot import TelegramBot, state_manager
 from .models import TelegramState, TelegramUser
 
 
-@processor(state_manager, from_states=state_types.All)
-def hello_world(bot: TelegramBot, update: Update, state: TelegramState):
-    # bot.sendMessage(update.get_chat().get_id(), 'Hello!')
-    pass
-
-
-@processor(state_manager, from_states=state_types.All)
+@processor(
+    state_manager,
+    from_states=state_types.Reset,
+    message_types=message_types.Text,
+    success=state_types.Reset,
+    fail=state_types.Reset,
+)
 def register(bot: TelegramBot, update: Update, state: TelegramState):
     if getattr(update.get_message(), "text", None) != "/register":
         return
