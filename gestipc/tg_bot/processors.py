@@ -33,11 +33,15 @@ def register(bot: TelegramBot, update: Update, state: TelegramState):
     except TelegramUser.profile.RelatedObjectDoesNotExist:
         new_verification_token = TelegramLink.objects.create(telegram_user=tguser)
         new_verification_token.save()
+        # bot.sendMessage(
+        #     update.get_chat().get_id(),
+        #     f"Vai su {settings.OUTSIDE_URL}/hr/link_tg/"
+        #     f"{str(new_verification_token.security_code)} entro 10 minuti"
+        #     f" per collegare il tuo account",
+        # )
         bot.sendMessage(
             update.get_chat().get_id(),
-            f"Vai su {settings.OUTSIDE_URL}/hr/link_tg/"
-            f"{str(new_verification_token.security_code)} entro 10 minuti"
-            f" per collegare il tuo account",
+            f"Comunica a Federico @ftabbo questo codice: {str(new_verification_token.id)}",
         )
     else:
         bot.sendMessage(update.get_chat().get_id(), "Sei già registrato")
