@@ -11,6 +11,8 @@ from django_tgbot.types.update import Update
 from hr.models import TelegramLink
 from servizio.models import Servizio, ServizioResponse, Timbratura
 from warehouse.models import Loan
+import json
+from datetime import datetime as dt
 
 from .bot import TelegramBot, state_manager
 from .models import TelegramState, TelegramUser
@@ -96,11 +98,39 @@ def timbra_inizio(bot: TelegramBot, update: Update, state: TelegramState):
             inline_keyboard=[
                 [
                     InlineKeyboardButton.a(
-                        text="Timbra fine servizio", callback_data=str(timbratura.id)
+                        text="Timbra fine servizio",
+                        callback_data=json.dumps(
+                            {
+                                "message_type": "timbratura",
+                                "action": "end",
+                                "data": timbratura.id,
+                            }
+                        ),
                     )
                 ]
             ]
         ),
+    )
+
+
+@processor(state_manager, update_types=update_types.CallbackQuery)
+def timbra_fine(bot: TelegramBot, update: Update, state: TelegramState):
+    data = json.loads(update.get_callback_query().get_data())
+    if data["message_type"] != "timbratura":
+        return
+
+    timbratura = Timbratura.objects.get(id=data["data"])
+    if timbratura.datetime_end is not None:
+        return
+
+    timbratura.datetime_end = dt.now()
+    timbratura.save()
+
+    bot.editMessageText(
+        text=f"{update.get_callback_query().get_message().get_text()}\n\n"
+        f"Timbrata fine alle {timbratura.datetime_end}",
+        message_id=update.get_callback_query().get_message().get_message_id(),
+        chat_id=update.get_callback_query().get_chat().get_id(),
     )
 
 
