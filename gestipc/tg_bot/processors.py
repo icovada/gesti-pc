@@ -158,7 +158,9 @@ def timbra_inizio(bot: TelegramBot, update: Update, state: TelegramState):
     )
 
 
-@processor(state_manager, update_types=update_types.CallbackQuery)
+@processor(
+    state_manager, update_types=update_types.CallbackQuery, from_states=state_types.All
+)
 def timbra_fine(bot: TelegramBot, update: Update, state: TelegramState):
     data = json.loads(update.get_callback_query().get_data())
     if data["message_type"] != "timbratura":
