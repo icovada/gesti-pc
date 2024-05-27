@@ -8,11 +8,14 @@ from django_tgbot.types.inlinekeyboardmarkup import InlineKeyboardMarkup
 from django_tgbot.types.replykeyboardmarkup import ReplyKeyboardMarkup
 from django_tgbot.types.keyboardbutton import KeyboardButton
 from django_tgbot.types.update import Update
-from hr.models import TelegramLink
+from django_tgbot.exceptions import ProcessFailure
+from django.core.exceptions import ObjectDoesNotExist
+from core.models import Profile
 from servizio.models import Servizio, ServizioResponse, Timbratura
 from warehouse.models import Loan
 import json
 from datetime import datetime as dt
+from enum import StrEnum
 
 from .bot import TelegramBot, state_manager
 from .models import TelegramState, TelegramUser
@@ -26,6 +29,12 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup.a(
 )
 
 
+class StateEnum(StrEnum):
+    MAIN = "main"
+    REGISTRATION_STEP1 = "registration_step1"
+    DISABLED = "disabled"
+
+
 def set_main_keyboard(bot: TelegramBot, user: TelegramUser):
     bot.sendMessage(
         chat_id=user.telegram_id,
@@ -37,11 +46,10 @@ def set_main_keyboard(bot: TelegramBot, user: TelegramUser):
     state_manager,
     from_states=state_types.Reset,
     message_types=message_types.Text,
-    success=state_types.Reset,
-    fail=state_types.Reset,
+    success=StateEnum.REGISTRATION_STEP1,
 )
 def register(bot: TelegramBot, update: Update, state: TelegramState):
-    if getattr(update.get_message(), "text", None) != "/register":
+    if getattr(update.get_message(), "text", None) != "/start":
         return
 
     userid = update.get_user().get_id()
@@ -50,8 +58,6 @@ def register(bot: TelegramBot, update: Update, state: TelegramState):
     try:
         currentuser = tguser.profile.fkuser  # noqa
     except TelegramUser.profile.RelatedObjectDoesNotExist:
-        new_verification_token = TelegramLink.objects.create(telegram_user=tguser)
-        new_verification_token.save()
         # bot.sendMessage(
         #     update.get_chat().get_id(),
         #     f"Vai su {settings.OUTSIDE_URL}/hr/link_tg/"
@@ -60,8 +66,14 @@ def register(bot: TelegramBot, update: Update, state: TelegramState):
         # )
         bot.sendMessage(
             update.get_chat().get_id(),
-            f"Comunica a Federico @ftabbo questo codice: {str(new_verification_token.id)}",
-            reply_markup=MAIN_KEYBOARD,
+            "Benvenuto! Premi il pulsante 'Registrati' qui sotto per registrarti, poi clicca 'Condividi Contatto'",
+            reply_markup=ReplyKeyboardMarkup.a(
+                keyboard=[
+                    [
+                        KeyboardButton.a(text="Registrati", request_contact=True),
+                    ]
+                ]
+            ),
         )
         # set_main_keyboard(bot, update.get_user().get_id())
     else:
@@ -72,10 +84,43 @@ def register(bot: TelegramBot, update: Update, state: TelegramState):
 
 @processor(
     state_manager,
-    from_states=state_types.Reset,
+    message_types=[
+        message_types.Contact,
+    ],
+    update_types=[],
+    from_states=[StateEnum.REGISTRATION_STEP1],
+    success=StateEnum.MAIN,
+)
+def associate_contact_to_user(bot: TelegramBot, update: Update, state: TelegramState):
+    contact = update.message.obj["contact"]
+
+    try:
+        # When sending from mobile, number does not start with +
+        if not contact["phone_number"].startswith("+"):
+            contact["phone_number"] = "+" + contact["phone_number"]
+
+        userprofile = Profile.objects.get(phone_number=contact["phone_number"])
+
+    except ObjectDoesNotExist as e:
+        bot.sendMessage(update.get_chat().get_id(), "Utente non trovato")
+        raise ProcessFailure from e
+
+    tguser = TelegramUser.objects.get(telegram_id=update.get_user().get_id())
+
+    userprofile.telegram_user = tguser
+    userprofile.save()
+
+    bot.sendMessage(
+        chat_id=update.get_chat().get_id(),
+        reply_markup=MAIN_KEYBOARD,
+        text="Registrazione riuscita",
+    )
+
+
+@processor(
+    state_manager,
+    from_states=[StateEnum.MAIN],
     message_types=message_types.Text,
-    success=state_types.Reset,
-    fail=state_types.Reset,
 )
 def timbra_inizio(bot: TelegramBot, update: Update, state: TelegramState):
     if getattr(update.get_message(), "text", None) != "Timbratura":
@@ -134,13 +179,6 @@ def timbra_fine(bot: TelegramBot, update: Update, state: TelegramState):
     )
 
 
-def registration_complete(bot: TelegramBot, user):
-    bot.sendMessage(
-        user.profile.telegram_user.telegram_id,
-        f"Account {user.username} collegato correttamente",
-    )
-
-
 def nuovo_servizio_callback(bot: TelegramBot, instance: Servizio) -> int:
     poll = bot.sendPoll(
         settings.GROUP_CHAT_ID,
@@ -170,8 +208,8 @@ def new_item_loaned_to_user(bot: TelegramBot, tg_user: TelegramUser, instance: L
 
 @processor(
     state_manager,
-    from_states=state_types.All,
     update_types=[update_types.CallbackQuery],
+    from_states=[StateEnum.DISABLED],
 )
 def return_loaned_item(bot: TelegramBot, update, state):
     """Receive callback for loan return.
@@ -241,8 +279,8 @@ def return_loaned_item(bot: TelegramBot, update, state):
 
 @processor(
     state_manager,
-    from_states=state_types.All,
     update_types=[update_types.CallbackQuery],
+    from_states=[StateEnum.DISABLED],
 )
 def confirm_return_item(bot: TelegramBot, update, state):
     """Receive return inline callback from warehouse worker
@@ -297,8 +335,8 @@ def confirm_return_item(bot: TelegramBot, update, state):
 
 @processor(
     state_manager,
-    from_states=state_types.All,
     update_types=[update_types.PollAnswer],
+    from_states=[StateEnum.DISABLED],
 )
 def manage_poll_answer_servizio(bot: TelegramBot, update, state):
     """Receive Poll answers for Servizio polls"""

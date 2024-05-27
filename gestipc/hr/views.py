@@ -3,10 +3,6 @@ from django.contrib.auth.models import User
 from django.shortcuts import render
 from django.db.models.fields import Field
 from hr.models import PersonalEquipmentAssignmentDetail, PersonalEquipmentType
-from tg_bot.bot import bot
-from tg_bot.processors import registration_complete
-
-from .models import TelegramLink
 
 # Create your views here.
 
@@ -54,22 +50,3 @@ def detail_page(request, id):
             "certifications": all_certs,
         },
     )
-
-
-@login_required
-def link_tg(request, uuid):
-    try:
-        tg_link = TelegramLink.objects.get(security_code=uuid)
-    except TelegramLink.DoesNotExist:
-        return render(request, "hr/tg_link_invalid.html")
-
-    profile = request.user.profile
-
-    profile.telegram_user = tg_link.telegram_user
-    profile.save()
-
-    tg_link.delete()
-
-    registration_complete(bot, request.user)
-
-    return render(request, "hr/tg_link_success.html")
