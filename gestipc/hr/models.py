@@ -9,7 +9,9 @@ from tg_bot.models import TelegramUser
 
 
 class TelegramLink(models.Model):
-    telegram_user = models.OneToOneField(TelegramUser, on_delete=models.CASCADE)
+    telegram_user = models.OneToOneField(
+        TelegramUser, on_delete=models.SET_NULL, null=True, blank=True
+    )
     security_code = models.UUIDField(default=uuid.uuid4)
     created_at = models.DateTimeField(default=timezone.now)
 
