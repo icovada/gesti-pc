@@ -1,8 +1,14 @@
-[tool.autopep8]
-max_line_length = 120
-in-place = true
-recursive = true
-aggressive = 3
+[project]
+name = "gesti-pc"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=6.0.1",
+]
 
-[tool.djlint]
-ignore="H006,H025"
+[dependency-groups]
+dev = [
+    "ruff>=0.14.11",
+]
