@@ -25,6 +25,9 @@ class CodiceFiscale:
 
     def __str__(self):
         return self.cf
-    
+
     def __repr__(self):
         return f"CodiceFiscale('{self.cf}')"
+
+    def __len__(self):
+        return 16
