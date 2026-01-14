@@ -43,7 +43,7 @@ class TipoOggetto(models.Model):
 
 
 class Oggetto(BaseOggetto):
-    tipo = models.ForeignKey(TipoOggetto, on_delete=models.SET_NULL, null=True)
+    tipo = models.ForeignKey(TipoOggetto, on_delete=models.SET_NULL, null=False)
 
 
 class TipoVeicolo(models.Model):
@@ -53,4 +53,4 @@ class TipoVeicolo(models.Model):
 
 class Veicolo(BaseOggetto):
     targa = models.CharField(max_length=12)
-    tipo = models.ForeignKey(TipoVeicolo, on_delete=models.SET_NULL, null=True)
+    tipo = models.ForeignKey(TipoVeicolo, on_delete=models.SET_NULL, null=False)
