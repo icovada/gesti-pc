@@ -1,6 +1,7 @@
 from uuid import uuid4
-from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.contrib import admin
+from django.forms import ValidationError
 
 from .codicefiscale import CodiceFiscale
 # Create your models here.
@@ -16,41 +17,98 @@ class CodiceFiscaleField(models.CharField):
     def validate(self, value, model_instance):
         super().validate(value, model_instance)
         if value:
-            CodiceFiscale(value)
+            try:
+                CodiceFiscale(value)
+            except Exception as e:
+                raise ValidationError(e)
 
+    def to_python(self, value):
+        """Convert input value to Python object (for forms/deserialization)"""
+        if isinstance(value, CodiceFiscale):
+            return value
+        if value is None:
+            return value
+        return CodiceFiscale(value)
+
+    def from_db_value(self, value, *args):
+        """Convert database value to Python object (called when loading from DB)"""
+        if value is None:
+            return value
+        return CodiceFiscale(value)
+
+    def get_prep_value(self, value):
+        """Convert Python object to database value"""
+        if value is None:
+            return value
+        if isinstance(value, CodiceFiscale):
+            return str(value)  # or value.code if that's the attribute
+        return value
 
 class Organizzazione(models.Model):
     pkid = models.UUIDField(default=uuid4, primary_key=True, null=False)
     name = models.CharField(max_length=30)
 
+    def __str__(self) -> str:
+        return self.name
 
-class Volontario(AbstractUser):
+
+class Volontario(models.Model):
     codice_fiscale = CodiceFiscaleField(primary_key=True, null=False, blank=False)
     nome = models.CharField(max_length=30)
     cognome = models.CharField(max_length=30)
-    fkorganizzazione = models.ForeignKey(Organizzazione, on_delete=models.CASCADE)
+    fkorganizzazione = models.ForeignKey(
+        Organizzazione, on_delete=models.SET_NULL, blank=False, null=True
+    )
+
+    def __str__(self) -> str:
+        return f"{self.nome} {self.cognome} - {self.fkorganizzazione if self.fkorganizzazione else ''}"
+
+    @admin.display(description="Data di nascita")
+    def data_di_nascita(self):
+        from django.utils import formats
+        cf: CodiceFiscale = self.codice_fiscale  # type: ignore
+        return formats.date_format(cf.birth_date, "d F Y")
+
+    @admin.display(description="Luogo di nascita")
+    def luogo_di_nascita(self):
+        cf: CodiceFiscale = self.codice_fiscale  # type: ignore
+        return f"{cf.birth_place}, {cf.birth_province}"
 
 
 class BaseOggetto(models.Model):
     pkid = models.UUIDField(primary_key=True, null=False, default=uuid4)
-    fkorganizzazione = models.ForeignKey(Organizzazione, on_delete=models.SET_NULL, null=True)
+    fkorganizzazione = models.ForeignKey(
+        Organizzazione, on_delete=models.SET_NULL, null=True
+    )
     descrizione = models.TextField()
+
+    def __str__(self) -> str:
+        return f"{self.descrizione} - {self.fkorganizzazione}"
 
 
 class TipoOggetto(models.Model):
     pkid = models.UUIDField(primary_key=True, null=False, default=uuid4)
     tipo = models.CharField(max_length=20)
 
+    def __str__(self) -> str:
+        return self.tipo
+
 
 class Oggetto(BaseOggetto):
-    tipo = models.ForeignKey(TipoOggetto, on_delete=models.SET_NULL, null=False)
+    tipo = models.ForeignKey(TipoOggetto, on_delete=models.PROTECT, null=False)
 
 
 class TipoVeicolo(models.Model):
     pkid = models.UUIDField(primary_key=True, null=False, default=uuid4)
     tipo = models.CharField(max_length=20)
 
+    def __str__(self) -> str:
+        return self.tipo
+
 
 class Veicolo(BaseOggetto):
     targa = models.CharField(max_length=12)
-    tipo = models.ForeignKey(TipoVeicolo, on_delete=models.SET_NULL, null=False)
+    tipo = models.ForeignKey(TipoVeicolo, on_delete=models.PROTECT, null=False)
+
+    def __str__(self) -> str:
+        return self.targa

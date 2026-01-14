@@ -22,3 +22,9 @@ class CodiceFiscale:
         self.birth_date = decoded["birthdate"]
         self.birth_place = decoded["birthplace"]["name"]
         self.birth_province = decoded["birthplace"]["province"]
+
+    def __str__(self):
+        return self.cf
+    
+    def __repr__(self):
+        return f"CodiceFiscale('{self.cf}')"
