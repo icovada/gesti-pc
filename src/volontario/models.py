@@ -109,3 +109,15 @@ class Veicolo(models.Model):
 
     def __str__(self) -> str:
         return self.targa
+
+
+class CertificazioneVolontarioMap(models.Model):
+    data_conseguimento = models.DateField()
+    fkcertificazione = models.ForeignKey("Certificazione", on_delete=models.CASCADE)
+    fkvolontario = models.ForeignKey(Volontario, on_delete=models.CASCADE)
+
+
+class Certificazione(models.Model):
+    pkid = models.UUIDField(primary_key=True, null=False, default=uuid4)
+    nome = models.CharField(max_length=50)
+    volontari = models.ManyToManyField(to=Volontario, through=CertificazioneVolontarioMap)
