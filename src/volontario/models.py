@@ -116,8 +116,16 @@ class CertificazioneVolontarioMap(models.Model):
     fkcertificazione = models.ForeignKey("Certificazione", on_delete=models.CASCADE)
     fkvolontario = models.ForeignKey(Volontario, on_delete=models.CASCADE)
 
+    def __str__(self) -> str:
+        return f"{self.fkvolontario} - {self.fkcertificazione}"
+
 
 class Certificazione(models.Model):
     pkid = models.UUIDField(primary_key=True, null=False, default=uuid4)
     nome = models.CharField(max_length=50)
-    volontari = models.ManyToManyField(to=Volontario, through=CertificazioneVolontarioMap)
+    volontari = models.ManyToManyField(
+        to=Volontario, through=CertificazioneVolontarioMap
+    )
+
+    def __str__(self) -> str:
+        return self.nome
