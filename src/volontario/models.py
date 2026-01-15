@@ -43,6 +43,10 @@ class Organizzazione(models.Model):
     pkid = models.UUIDField(default=uuid4, primary_key=True, null=False)
     name = models.CharField(max_length=30)
 
+    class Meta:
+        verbose_name = "Organizzazione"
+        verbose_name_plural = "Organizzazioni"
+
     def __str__(self) -> str:
         return self.name
 
@@ -54,6 +58,10 @@ class Volontario(models.Model):
     fkorganizzazione = models.ForeignKey(
         Organizzazione, on_delete=models.SET_NULL, blank=False, null=True
     )
+
+    class Meta:
+        verbose_name = "Volontario"
+        verbose_name_plural = "Volontari"
 
     def __str__(self) -> str:
         return f"{self.nome} {self.cognome} - {self.fkorganizzazione if self.fkorganizzazione else ''}"
@@ -75,6 +83,10 @@ class TipoOggetto(models.Model):
     pkid = models.UUIDField(primary_key=True, null=False, default=uuid4)
     tipo = models.CharField(max_length=20)
 
+    class Meta:
+        verbose_name = "Tipo Oggetto"
+        verbose_name_plural = "Tipi Oggetto"
+
     def __str__(self) -> str:
         return self.tipo
 
@@ -87,6 +99,10 @@ class Oggetto(models.Model):
     descrizione = models.TextField(blank=True)
     tipo = models.ForeignKey(TipoOggetto, on_delete=models.PROTECT, null=False)
 
+    class Meta:
+        verbose_name = "Oggetto"
+        verbose_name_plural = "Oggetti"
+
     def __str__(self) -> str:
         return f"{self.descrizione} - {self.fkorganizzazione}"
 
@@ -94,6 +110,10 @@ class Oggetto(models.Model):
 class TipoVeicolo(models.Model):
     pkid = models.UUIDField(primary_key=True, null=False, default=uuid4)
     tipo = models.CharField(max_length=20)
+
+    class Meta:
+        verbose_name = "Tipo Veicolo"
+        verbose_name_plural = "Tipi Veicolo"
 
     def __str__(self) -> str:
         return self.tipo
@@ -107,6 +127,10 @@ class Veicolo(models.Model):
     descrizione = models.TextField(blank=True)
     tipo = models.ForeignKey(TipoVeicolo, on_delete=models.PROTECT, null=False)
 
+    class Meta:
+        verbose_name = "Veicolo"
+        verbose_name_plural = "Veicoli"
+
     def __str__(self) -> str:
         return self.targa
 
@@ -115,6 +139,10 @@ class CertificazioneVolontarioMap(models.Model):
     data_conseguimento = models.DateField()
     fkcertificazione = models.ForeignKey("Certificazione", on_delete=models.CASCADE)
     fkvolontario = models.ForeignKey(Volontario, on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = "Certificazione Volontario"
+        verbose_name_plural = "Certificazioni Volontari"
 
     def __str__(self) -> str:
         return f"{self.fkvolontario} - {self.fkcertificazione}"
@@ -126,6 +154,10 @@ class Certificazione(models.Model):
     volontari = models.ManyToManyField(
         to=Volontario, through=CertificazioneVolontarioMap
     )
+
+    class Meta:
+        verbose_name = "Certificazione"
+        verbose_name_plural = "Certificazioni"
 
     def __str__(self) -> str:
         return self.nome
