@@ -10,6 +10,12 @@ from .models import (
     CertificazioneVolontarioMap,
 )
 
+# Register your models here.
+admin.site.register(TipoVeicolo)
+admin.site.register(Veicolo)
+admin.site.register(TipoOggetto)
+admin.site.register(Oggetto)
+
 
 class CertificazioneVolontarioMapInline(admin.TabularInline):
     model = CertificazioneVolontarioMap
@@ -29,16 +35,14 @@ class VolontarioAdmin(admin.ModelAdmin):
     ]
     readonly_fields = ["data_di_nascita", "luogo_di_nascita"]
     inlines = [CertificazioneVolontarioMapInline]
-
-
-# Register your models here.
-admin.site.register(Organizzazione)
-admin.site.register(TipoVeicolo)
-admin.site.register(Veicolo)
-admin.site.register(TipoOggetto)
-admin.site.register(Oggetto)
+    autocomplete_fields = ["fkorganizzazione"]
 
 
 @admin.register(Certificazione)
 class CertificazioneAdmin(admin.ModelAdmin):
+    search_fields = ["nome"]
+
+
+@admin.register(Organizzazione)
+class OrganizzazioneAdmin(admin.ModelAdmin):
     search_fields = ["nome"]
