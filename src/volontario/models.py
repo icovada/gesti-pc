@@ -98,7 +98,11 @@ class TipoOggetto(models.Model):
 class Oggetto(models.Model):
     pkid = models.UUIDField(primary_key=True, null=False, default=uuid4)
     fkorganizzazione = models.ForeignKey(
-        Organizzazione, on_delete=models.SET_NULL, null=True
+        Organizzazione,
+        on_delete=models.SET_NULL,
+        blank=False,
+        null=True,
+        verbose_name="Organizzazione",
     )
     descrizione = models.TextField(blank=True)
     tipo = models.ForeignKey(TipoOggetto, on_delete=models.PROTECT, null=False)
@@ -126,7 +130,11 @@ class TipoVeicolo(models.Model):
 class Veicolo(models.Model):
     targa = models.CharField(max_length=12, primary_key=True)
     fkorganizzazione = models.ForeignKey(
-        Organizzazione, on_delete=models.SET_NULL, null=True
+        Organizzazione,
+        on_delete=models.SET_NULL,
+        blank=False,
+        null=True,
+        verbose_name="Organizzazione",
     )
     descrizione = models.TextField(blank=True)
     tipo = models.ForeignKey(TipoVeicolo, on_delete=models.PROTECT, null=False)
