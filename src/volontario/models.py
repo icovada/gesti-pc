@@ -132,7 +132,7 @@ class Veicolo(models.Model):
         verbose_name_plural = "Veicoli"
 
     def __str__(self) -> str:
-        return self.targa
+        return str(self.targa)
 
 
 class CertificazioneVolontarioMap(models.Model):
