@@ -56,7 +56,11 @@ class Volontario(models.Model):
     nome = models.CharField(max_length=30)
     cognome = models.CharField(max_length=30)
     fkorganizzazione = models.ForeignKey(
-        Organizzazione, on_delete=models.SET_NULL, blank=False, null=True
+        Organizzazione,
+        on_delete=models.SET_NULL,
+        blank=False,
+        null=True,
+        verbose_name="Organizzazione",
     )
 
     class Meta:
