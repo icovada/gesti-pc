@@ -83,9 +83,11 @@ async def handle_codice_fiscale(
         )
         return ConversationState.WAITING_CODICE_FISCALE.value
 
-    # Check if volontario exists
+    # Check if volontario exists (with org preloaded)
     try:
-        volontario = await Volontario.objects.aget(codice_fiscale=codice_fiscale)
+        volontario = await Volontario.objects.select_related("fkorganizzazione").aget(
+            codice_fiscale=codice_fiscale
+        )
     except Volontario.DoesNotExist:
         await update.message.reply_text(
             "❌ Codice fiscale non trovato nel sistema.\n\n"

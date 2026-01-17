@@ -32,4 +32,4 @@ class TelegramUser(models.Model):
 
     @property
     def is_linked(self) -> bool:
-        return self.volontario is not None
+        return self.volontario_id is not None
