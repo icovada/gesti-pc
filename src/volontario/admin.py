@@ -73,8 +73,8 @@ class VolontarioAdmin(admin.ModelAdmin):
             "data_di_nascita",
             "luogo_di_nascita",
         ]
-        # Only superusers or IT Admin group can see/edit user link
-        if request.user.is_superuser or request.user.groups.filter(name="IT Admin").exists():
+        # Only superusers can see/edit user link
+        if request.user.is_superuser:
             fields.append("user")
         return fields
 
