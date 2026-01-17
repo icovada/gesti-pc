@@ -1,6 +1,7 @@
 import logging
 from enum import Enum, auto
 
+from django.utils import timezone
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -14,7 +15,7 @@ from telegram.ext import (
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
-from .models import TelegramUser
+from .models import TelegramUser, TimeEntry
 from volontario.models import Volontario
 
 User = get_user_model()
@@ -154,6 +155,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 "📋 Comandi disponibili:\n\n"
                 "/start - Avvia il bot\n"
                 "/profilo - Visualizza il tuo profilo\n"
+                "/entrata - Registra entrata\n"
+                "/uscita - Registra uscita\n"
+                "/ore - Riepilogo ore del mese\n"
                 "/help - Mostra questo messaggio"
             )
             return
@@ -208,6 +212,135 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+async def get_linked_volontario(update: Update) -> Volontario | None:
+    """Helper to get linked volontario or send error message."""
+    user = update.effective_user
+    try:
+        tg_user = await TelegramUser.objects.aget(telegram_id=user.id)
+    except TelegramUser.DoesNotExist:
+        await update.message.reply_text(
+            "❌ Non sei ancora registrato.\n"
+            "Usa /start per associare il tuo account."
+        )
+        return None
+
+    if not tg_user.is_linked:
+        await update.message.reply_text(
+            "❌ Il tuo account Telegram non è ancora associato.\n"
+            "Usa /start per completare l'associazione."
+        )
+        return None
+
+    return await Volontario.objects.aget(pk=tg_user.volontario_id)
+
+
+async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Clock in - start tracking time."""
+    volontario = await get_linked_volontario(update)
+    if not volontario:
+        return
+
+    # Check if already clocked in
+    open_entry = await TimeEntry.objects.filter(
+        volontario=volontario,
+        clock_out__isnull=True,
+    ).afirst()
+
+    if open_entry:
+        await update.message.reply_text(
+            f"⚠️ Hai già un'entrata aperta dalle {open_entry.clock_in:%H:%M del %d/%m/%Y}.\n\n"
+            f"Usa /uscita per registrare l'uscita prima di una nuova entrata."
+        )
+        return
+
+    # Create new time entry
+    entry = await TimeEntry.objects.acreate(volontario=volontario)
+
+    await update.message.reply_text(
+        f"✅ Entrata registrata alle {entry.clock_in:%H:%M}.\n\n"
+        f"Buon lavoro! Usa /uscita quando hai finito."
+    )
+
+
+async def clock_out(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Clock out - stop tracking time."""
+    volontario = await get_linked_volontario(update)
+    if not volontario:
+        return
+
+    # Find open entry
+    open_entry = await TimeEntry.objects.filter(
+        volontario=volontario,
+        clock_out__isnull=True,
+    ).afirst()
+
+    if not open_entry:
+        await update.message.reply_text(
+            "❌ Non hai nessuna entrata aperta.\n\n"
+            "Usa /entrata per registrare un'entrata."
+        )
+        return
+
+    # Close the entry
+    open_entry.clock_out = timezone.now()
+    await open_entry.asave(update_fields=["clock_out"])
+
+    # Calculate duration
+    duration_minutes = open_entry.duration
+    hours = int(duration_minutes // 60)
+    minutes = int(duration_minutes % 60)
+
+    await update.message.reply_text(
+        f"✅ Uscita registrata alle {open_entry.clock_out:%H:%M}.\n\n"
+        f"Durata: {hours}h {minutes}m\n"
+        f"Grazie per il tuo servizio!"
+    )
+
+
+async def hours_summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show hours summary for current month."""
+    volontario = await get_linked_volontario(update)
+    if not volontario:
+        return
+
+    now = timezone.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Get completed entries for this month
+    entries = TimeEntry.objects.filter(
+        volontario=volontario,
+        clock_in__gte=month_start,
+        clock_out__isnull=False,
+    )
+
+    total_minutes = 0
+    entry_count = 0
+    async for entry in entries:
+        total_minutes += entry.duration or 0
+        entry_count += 1
+
+    # Check for open entry
+    open_entry = await TimeEntry.objects.filter(
+        volontario=volontario,
+        clock_out__isnull=True,
+    ).afirst()
+
+    hours = int(total_minutes // 60)
+    minutes = int(total_minutes % 60)
+
+    month_name = now.strftime("%B %Y")
+    message = (
+        f"📊 Riepilogo ore - {month_name}\n\n"
+        f"Totale: {hours}h {minutes}m\n"
+        f"Sessioni completate: {entry_count}"
+    )
+
+    if open_entry:
+        message += f"\n\n⏱️ Entrata in corso dalle {open_entry.clock_in:%H:%M}"
+
+    await update.message.reply_text(message)
+
+
 def create_application() -> Application:
     """Create and configure the bot application."""
     if not settings.TELEGRAM_BOT_TOKEN:
@@ -232,6 +365,9 @@ def create_application() -> Application:
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("profilo", profile))
+    application.add_handler(CommandHandler("entrata", clock_in))
+    application.add_handler(CommandHandler("uscita", clock_out))
+    application.add_handler(CommandHandler("ore", hours_summary))
 
     return application
 

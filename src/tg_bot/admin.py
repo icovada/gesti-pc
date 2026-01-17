@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import TelegramUser
+from .models import TelegramUser, TimeEntry
 
 
 @admin.register(TelegramUser)
@@ -35,3 +35,30 @@ class TelegramUserAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return self.has_module_permission(request)
+
+
+@admin.register(TimeEntry)
+class TimeEntryAdmin(admin.ModelAdmin):
+    list_display = [
+        "volontario",
+        "clock_in",
+        "clock_out",
+        "duration_display",
+    ]
+    list_filter = ["clock_in", "volontario__fkorganizzazione"]
+    search_fields = [
+        "volontario__nome",
+        "volontario__cognome",
+        "volontario__codice_fiscale",
+    ]
+    raw_id_fields = ["volontario"]
+    readonly_fields = ["pkid", "created_at", "duration_display"]
+    date_hierarchy = "clock_in"
+
+    @admin.display(description="Durata")
+    def duration_display(self, obj):
+        if obj.duration is None:
+            return "In corso"
+        hours = int(obj.duration // 60)
+        minutes = int(obj.duration % 60)
+        return f"{hours}h {minutes}m"
