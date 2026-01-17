@@ -121,3 +121,6 @@ STATIC_URL = 'static/'
 
 # Telegram Bot Configuration
 TELEGRAM_BOT_TOKEN = ''  # Set via environment variable in production
+
+# Site URL for generating login links
+SITE_URL = 'http://localhost:8000'  # Set to your domain in production

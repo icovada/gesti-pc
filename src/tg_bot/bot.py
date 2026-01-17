@@ -15,7 +15,7 @@ from telegram.ext import (
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
-from .models import TelegramUser, TimeEntry
+from .models import LoginToken, TelegramUser, TimeEntry
 from volontario.models import Volontario
 
 User = get_user_model()
@@ -158,6 +158,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 "/entrata - Registra entrata\n"
                 "/uscita - Registra uscita\n"
                 "/ore - Riepilogo ore del mese\n"
+                "/login - Ottieni link di accesso al sito\n"
                 "/help - Mostra questo messaggio"
             )
             return
@@ -341,6 +342,39 @@ async def hours_summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(message)
 
 
+async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate a one-time login link for web access."""
+    user = update.effective_user
+
+    try:
+        tg_user = await TelegramUser.objects.select_related("volontario").aget(
+            telegram_id=user.id
+        )
+    except TelegramUser.DoesNotExist:
+        await update.message.reply_text(
+            "❌ Non sei ancora registrato.\n"
+            "Usa /start per associare il tuo account."
+        )
+        return
+
+    if not tg_user.is_linked:
+        await update.message.reply_text(
+            "❌ Il tuo account Telegram non è ancora associato.\n"
+            "Usa /start per completare l'associazione."
+        )
+        return
+
+    # Create a new login token
+    token = await LoginToken.objects.acreate(telegram_user=tg_user)
+
+    login_url = token.get_login_url()
+    await update.message.reply_text(
+        f"🔐 Ecco il tuo link di accesso:\n\n"
+        f"{login_url}\n\n"
+        f"⚠️ Il link è valido per 10 minuti e può essere usato una sola volta.",
+    )
+
+
 def create_application() -> Application:
     """Create and configure the bot application."""
     if not settings.TELEGRAM_BOT_TOKEN:
@@ -368,6 +402,7 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("entrata", clock_in))
     application.add_handler(CommandHandler("uscita", clock_out))
     application.add_handler(CommandHandler("ore", hours_summary))
+    application.add_handler(CommandHandler("login", login))
 
     return application
 
