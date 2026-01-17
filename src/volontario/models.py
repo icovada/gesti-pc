@@ -22,7 +22,7 @@ class CodiceFiscaleField(models.CharField):
         try:
             return CodiceFiscale(value)
         except Exception as e:
-            raise ValidationError() from e
+            raise ValidationError(str(e)) from e
 
     def from_db_value(self, value, *args):
         """Convert database value to Python object (called when loading from DB)"""
