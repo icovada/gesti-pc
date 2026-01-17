@@ -64,6 +64,20 @@ class VolontarioAdmin(admin.ModelAdmin):
     search_fields = ["nome", "cognome", "codice_fiscale"]
     list_filter = ["fkorganizzazione"]
 
+    def get_fields(self, request, obj=None):
+        fields = [
+            "codice_fiscale",
+            "nome",
+            "cognome",
+            "fkorganizzazione",
+            "data_di_nascita",
+            "luogo_di_nascita",
+        ]
+        # Only superusers or IT Admin group can see/edit user link
+        if request.user.is_superuser or request.user.groups.filter(name="IT Admin").exists():
+            fields.append("user")
+        return fields
+
 
 @admin.register(Certificazione)
 class CertificazioneAdmin(admin.ModelAdmin):

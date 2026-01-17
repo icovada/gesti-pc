@@ -12,9 +12,12 @@ from telegram.ext import (
 )
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
 from .models import TelegramUser
 from volontario.models import Volontario
+
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +111,17 @@ async def handle_codice_fiscale(
     tg_user = await TelegramUser.objects.aget(telegram_id=user.id)
     tg_user.volontario = volontario
     await tg_user.asave()
+
+    # Create Django User if not already linked
+    if not volontario.user_id:
+        username = f"v_{codice_fiscale.lower()}"
+        django_user = await User.objects.acreate_user(
+            username=username,
+            first_name=volontario.nome,
+            last_name=volontario.cognome,
+        )
+        volontario.user = django_user
+        await volontario.asave(update_fields=["user"])
 
     await update.message.reply_text(
         f"✅ Associazione completata!\n\n"

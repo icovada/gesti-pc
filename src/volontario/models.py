@@ -1,4 +1,5 @@
 from uuid import uuid4
+from django.conf import settings
 from django.db import models
 from django.contrib import admin
 from django.forms import ValidationError
@@ -61,6 +62,13 @@ class Volontario(models.Model):
         blank=False,
         null=True,
         verbose_name="Organizzazione",
+    )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="volontario",
     )
 
     class Meta:

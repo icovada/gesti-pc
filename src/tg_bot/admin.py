@@ -17,3 +17,21 @@ class TelegramUserAdmin(admin.ModelAdmin):
     search_fields = ["telegram_id", "username", "first_name", "last_name"]
     raw_id_fields = ["volontario"]
     readonly_fields = ["telegram_id", "chat_id", "created_at", "updated_at"]
+
+    def has_module_permission(self, request):
+        """Only show in admin sidebar for superusers or IT Admin group."""
+        if request.user.is_superuser:
+            return True
+        return request.user.groups.filter(name="IT Admin").exists()
+
+    def has_view_permission(self, request, obj=None):
+        return self.has_module_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        return self.has_module_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        return self.has_module_permission(request)
+
+    def has_add_permission(self, request):
+        return self.has_module_permission(request)

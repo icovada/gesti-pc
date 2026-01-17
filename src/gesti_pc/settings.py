@@ -119,8 +119,5 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# Default primary key field type
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 # Telegram Bot Configuration
 TELEGRAM_BOT_TOKEN = ''  # Set via environment variable in production
