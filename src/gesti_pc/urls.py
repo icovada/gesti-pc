@@ -17,9 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from tg_bot.views import token_login
+from tg_bot.views import token_login, web_login, web_login_status
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('auth/login/<str:token>/', token_login, name='token_login'),
+    path('login/', web_login, name='web_login'),
+    path('login/status/<str:token>/', web_login_status, name='web_login_status'),
 ]

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conferma Accesso - GestiPC</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #e1e1e1;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 24px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        h1 {
+            color: #333;
+            font-size: 22px;
+            margin-bottom: 12px;
+        }
+        p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        .volontario-name {
+            font-weight: 600;
+            color: #333;
+        }
+        .telegram-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .status {
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 24px;
+        }
+        .status.pending {
+            background: #fff8e1;
+            color: #f57c00;
+        }
+        .status.approved {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        .status.denied {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .status.expired {
+            background: #f5f5f5;
+            color: #757575;
+        }
+        a.back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        a.back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="telegram-icon">📱</div>
+        <h1>Conferma richiesta su Telegram</h1>
+        <p>
+            Ciao <span class="volontario-name">{{ volontario.nome }}</span>,<br>
+            abbiamo inviato una richiesta di accesso al tuo Telegram.
+        </p>
+        <p>
+            Apri Telegram e premi <strong>Approva</strong> per accedere.
+        </p>
+
+        <div class="status pending" id="status">
+            <div class="spinner" id="spinner"></div>
+            In attesa di conferma...
+        </div>
+
+        <a href="{% url 'web_login' %}" class="back-link">← Torna al login</a>
+    </div>
+
+    <script>
+        const token = "{{ token }}";
+        const checkUrl = "{% url 'web_login_status' token='TOKEN' %}".replace('TOKEN', token);
+
+        async function checkStatus() {
+            try {
+                const response = await fetch(checkUrl);
+                const data = await response.json();
+
+                if (data.status === 'approved') {
+                    window.location.href = data.redirect_url;
+                } else if (data.status === 'denied') {
+                    document.getElementById('status').className = 'status denied';
+                    document.getElementById('status').innerHTML = '❌ Accesso rifiutato';
+                    document.getElementById('spinner')?.remove();
+                } else if (data.status === 'expired') {
+                    document.getElementById('status').className = 'status expired';
+                    document.getElementById('status').innerHTML = '⏱️ Richiesta scaduta';
+                    document.getElementById('spinner')?.remove();
+                }
+            } catch (e) {
+                console.error('Error checking status:', e);
+            }
+        }
+
+        // Poll every 2 seconds
+        setInterval(checkStatus, 2000);
+    </script>
+</body>
+</html>

@@ -5,10 +5,10 @@ from .models import Servizio, Timbratura, VolontarioServizioMap
 
 @admin.register(Servizio)
 class ServizioAdmin(admin.ModelAdmin):
-    list_display = ["nome", "date", "volontari_count"]
-    list_filter = ["date"]
+    list_display = ["nome", "data_ora", "volontari_count"]
+    list_filter = ["data_ora"]
     search_fields = ["nome"]
-    date_hierarchy = "date"
+    date_hierarchy = "data_ora"
 
     def volontari_count(self, obj):
         return obj.volontari.count()

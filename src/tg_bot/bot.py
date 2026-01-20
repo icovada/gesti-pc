@@ -6,6 +6,7 @@ from django.utils import timezone
 from telegram import Update
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
@@ -17,7 +18,7 @@ from telegram.ext import (
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
-from .models import LoginToken, TelegramUser
+from .models import LoginToken, TelegramUser, WebLoginRequest
 from servizio.models import Servizio, Timbratura, VolontarioServizioMap
 from volontario.models import Volontario
 
@@ -493,6 +494,70 @@ async def handle_servizio_time(
     return ConversationHandler.END
 
 
+async def handle_web_login_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle web login approval/denial callbacks."""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    if not data.startswith("web_login:"):
+        return
+
+    parts = data.split(":")
+    if len(parts) != 3:
+        return
+
+    _, action, token = parts
+
+    # Get the login request
+    try:
+        login_request = await WebLoginRequest.objects.aget(token=token)
+    except WebLoginRequest.DoesNotExist:
+        await query.edit_message_text("❌ Richiesta non trovata o già elaborata.")
+        return
+
+    # Check if already processed
+    if login_request.status != WebLoginRequest.Status.PENDING:
+        status_text = login_request.get_status_display()
+        await query.edit_message_text(f"Questa richiesta è già stata elaborata: {status_text}")
+        return
+
+    # Check if expired
+    if not login_request.is_pending:
+        login_request.status = WebLoginRequest.Status.EXPIRED
+        await login_request.asave(update_fields=["status"])
+        await query.edit_message_text("⏱️ Richiesta scaduta.")
+        return
+
+    # Fetch volontario details separately for async context
+    volontario_data = await WebLoginRequest.objects.filter(token=token).values(
+        'volontario__nome', 'volontario__cognome'
+    ).afirst()
+    volontario_nome = volontario_data['volontario__nome']
+    volontario_cognome = volontario_data['volontario__cognome']
+
+    # Process the action
+    if action == "approve":
+        login_request.status = WebLoginRequest.Status.APPROVED
+        login_request.resolved_at = timezone.now()
+        await login_request.asave(update_fields=["status", "resolved_at"])
+        await query.edit_message_text(
+            f"✅ Accesso approvato per {volontario_nome} {volontario_cognome}.\n\n"
+            "La sessione web è ora attiva."
+        )
+    elif action == "deny":
+        login_request.status = WebLoginRequest.Status.DENIED
+        login_request.resolved_at = timezone.now()
+        await login_request.asave(update_fields=["status", "resolved_at"])
+        await query.edit_message_text(
+            "❌ Accesso rifiutato.\n\n"
+            "Se non hai richiesto tu l'accesso, qualcuno potrebbe aver tentato "
+            "di accedere con il tuo codice fiscale."
+        )
+
+
 async def handle_poll_answer(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -601,6 +666,7 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("ore", hours_summary))
     application.add_handler(CommandHandler("login", login))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
+    application.add_handler(CallbackQueryHandler(handle_web_login_callback, pattern=r"^web_login:"))
 
     return application
 
