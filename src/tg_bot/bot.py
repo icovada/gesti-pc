@@ -18,7 +18,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from .models import LoginToken, TelegramUser
-from servizio.models import Servizio, Timbratura
+from servizio.models import Servizio, Timbratura, VolontarioServizioMap
 from volontario.models import Volontario
 
 User = get_user_model()
@@ -517,15 +517,31 @@ async def handle_poll_answer(
         return
 
     # Map option index to response
-    response_map = {0: "sì", 1: "no", 2: "forse"}
+    response_map = {
+        0: VolontarioServizioMap.Risposta.SI,
+        1: VolontarioServizioMap.Risposta.NO,
+        2: VolontarioServizioMap.Risposta.FORSE,
+    }
+
     if option_ids:
-        response = response_map.get(option_ids[0], "sconosciuto")
+        risposta = response_map.get(option_ids[0])
     else:
-        response = "rimosso"
+        # User retracted their vote
+        risposta = None
+
+    # Save or update the response
+    mapping, created = await VolontarioServizioMap.objects.aupdate_or_create(
+        fkvolontario=volontario,
+        fkservizio_id=servizio_id,
+        defaults={
+            "risposta": risposta,
+            "risposta_at": timezone.now() if risposta else None,
+        },
+    )
 
     logger.info(
         f"Poll answer: {volontario.nome} {volontario.cognome} "
-        f"responded '{response}' for servizio {servizio_id}"
+        f"responded '{risposta}' for servizio {servizio_id} (created={created})"
     )
 
 

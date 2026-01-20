@@ -9,9 +9,25 @@ from volontario.models import Volontario
 
 
 class VolontarioServizioMap(models.Model):
+    class Risposta(models.TextChoices):
+        SI = "si", "Sì"
+        NO = "no", "No"
+        FORSE = "forse", "Forse"
+
     pkid = models.UUIDField(default=uuid4, primary_key=True)
     fkvolontario = models.ForeignKey(Volontario, on_delete=models.CASCADE, null=False)
     fkservizio = models.ForeignKey("Servizio", on_delete=models.CASCADE, null=False)
+    risposta = models.CharField(max_length=10, choices=Risposta.choices, null=True, blank=True)
+    risposta_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ["fkvolontario", "fkservizio"]
+        verbose_name = "Disponibilità Volontario"
+        verbose_name_plural = "Disponibilità Volontari"
+
+    def __str__(self) -> str:
+        risposta_display = self.get_risposta_display() if self.risposta else "In attesa"
+        return f"{self.fkvolontario} - {self.fkservizio.nome} ({risposta_display})"
 
 
 class Servizio(models.Model):
@@ -19,6 +35,13 @@ class Servizio(models.Model):
     date = models.DateField()
     nome = models.CharField(max_length=150)
     volontari = models.ManyToManyField(to=Volontario, through=VolontarioServizioMap)
+
+    class Meta:
+        verbose_name = "Servizio"
+        verbose_name_plural = "Servizi"
+
+    def __str__(self) -> str:
+        return f"{self.nome} - {self.date:%d/%m/%Y}"
 
 
 class Timbratura(models.Model):

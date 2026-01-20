@@ -1,8 +1,6 @@
 from django.contrib import admin
 
 from .models import TelegramUser
-from servizio.models import Timbratura
-
 
 @admin.register(TelegramUser)
 class TelegramUserAdmin(admin.ModelAdmin):
@@ -37,29 +35,3 @@ class TelegramUserAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return self.has_module_permission(request)
 
-
-@admin.register(Timbratura)
-class TimbraturaAdmin(admin.ModelAdmin):
-    list_display = [
-        "fkvolontario",
-        "clock_in",
-        "clock_out",
-        "duration_display",
-    ]
-    list_filter = ["clock_in", "fkvolontario__fkorganizzazione"]
-    search_fields = [
-        "fkvolontario__nome",
-        "fkvolontario__cognome",
-        "fkvolontario__codice_fiscale",
-    ]
-    raw_id_fields = ["fkvolontario"]
-    readonly_fields = ["pkid", "created_at", "duration_display"]
-    date_hierarchy = "clock_in"
-
-    @admin.display(description="Durata")
-    def duration_display(self, obj):
-        if obj.duration is None:
-            return "In corso"
-        hours = int(obj.duration // 60)
-        minutes = int(obj.duration % 60)
-        return f"{hours}h {minutes}m"
