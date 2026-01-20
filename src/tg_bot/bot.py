@@ -5,7 +5,7 @@ from enum import Enum, auto
 from datetime import timedelta
 
 from django.utils import timezone
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -265,7 +265,7 @@ async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     # Create new time entry
-    entry = await Timbratura.objects.acreate(volontario=volontario)
+    entry = await Timbratura.objects.acreate(fkvolontario=volontario)
 
     await update.message.reply_text(
         f"✅ Entrata registrata alle {entry.clock_in:%H:%M}.\n\n"
@@ -560,6 +560,66 @@ async def handle_web_login_callback(
         )
 
 
+async def handle_clock_in_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle clock-in button press from reminder notification."""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    if not data.startswith("clock_in:"):
+        return
+
+    servizio_pkid = data.split(":", 1)[1]
+
+    # Get linked volontario
+    user_id = query.from_user.id
+    try:
+        tg_user = await TelegramUser.objects.aget(telegram_id=user_id)
+    except TelegramUser.DoesNotExist:
+        await query.edit_message_text("❌ Non sei registrato. Usa /start per associare il tuo account.")
+        return
+
+    if not tg_user.is_linked:
+        await query.edit_message_text("❌ Il tuo account non è associato. Usa /start per completare l'associazione.")
+        return
+
+    volontario = await Volontario.objects.aget(pk=tg_user.volontario_id)
+
+    # Get the servizio
+    try:
+        servizio = await Servizio.objects.aget(pkid=servizio_pkid)
+    except Servizio.DoesNotExist:
+        await query.edit_message_text("❌ Servizio non trovato.")
+        return
+
+    # Check if already clocked in (for any servizio)
+    open_entry = await Timbratura.objects.filter(
+        fkvolontario=volontario,
+        clock_out__isnull=True,
+    ).afirst()
+
+    if open_entry:
+        await query.edit_message_text(
+            f"⚠️ Hai già un'entrata aperta dalle {open_entry.clock_in:%H:%M del %d/%m/%Y}.\n\n"
+            f"Usa /uscita per registrare l'uscita prima di una nuova entrata."
+        )
+        return
+
+    # Create new time entry linked to the servizio
+    entry = await Timbratura.objects.acreate(
+        fkvolontario=volontario,
+        fkservizio=servizio,
+    )
+
+    await query.edit_message_text(
+        f"✅ Entrata registrata alle {entry.clock_in:%H:%M} per il servizio \"{servizio.nome}\".\n\n"
+        f"Buon lavoro! Usa /uscita quando hai finito."
+    )
+    logger.info(f"Clock-in via button: {volontario.nome} for servizio {servizio.nome}")
+
+
 async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Check for upcoming servizi and send reminders to volunteers."""
     now = timezone.now()
@@ -589,8 +649,14 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                 logger.debug(f"No telegram user for volontario {volontario.pkid}")
                 continue
 
-            # Send personal reminder
+            # Send personal reminder with inline button
             risposta_text = answer.get_risposta_display() if answer.risposta else "non data"
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    "✅ Registra entrata",
+                    callback_data=f"clock_in:{servizio.pkid}",
+                )]
+            ])
             try:
                 await context.bot.send_message(
                     chat_id=tg_user.chat_id,
@@ -600,6 +666,7 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                         f"📅 {servizio.data_ora:%d/%m/%Y %H:%M}\n\n"
                         f"La tua risposta: {risposta_text}"
                     ),
+                    reply_markup=keyboard,
                 )
                 logger.info(f"Sent reminder to {volontario.nome} for servizio {servizio.nome}")
             except Exception as e:
@@ -724,6 +791,7 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("login", login))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
     application.add_handler(CallbackQueryHandler(handle_web_login_callback, pattern=r"^web_login:"))
+    application.add_handler(CallbackQueryHandler(handle_clock_in_callback, pattern=r"^clock_in:"))
 
     return application
 
