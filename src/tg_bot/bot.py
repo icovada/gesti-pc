@@ -30,6 +30,7 @@ class ConversationState(Enum):
     WAITING_CODICE_FISCALE = auto()
     WAITING_SERVIZIO_NAME = auto()
     WAITING_SERVIZIO_DATE = auto()
+    WAITING_SERVIZIO_TIME = auto()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | None:
@@ -426,7 +427,7 @@ async def handle_servizio_name(
 async def handle_servizio_date(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
-    """Handle service date input and create the service."""
+    """Handle service date input."""
     date_text = update.message.text.strip()
 
     # Parse date
@@ -440,23 +441,54 @@ async def handle_servizio_date(
         )
         return ConversationState.WAITING_SERVIZIO_DATE.value
 
+    context.user_data["servizio_date"] = service_date
+
+    await update.message.reply_text(
+        f"Data: {service_date:%d/%m/%Y}\n\n"
+        "Inserisci l'ora del servizio (formato: HH:MM):"
+    )
+    return ConversationState.WAITING_SERVIZIO_TIME.value
+
+
+async def handle_servizio_time(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle service time input and create the service."""
+    time_text = update.message.text.strip()
+
+    # Parse time
+    try:
+        service_time = datetime.strptime(time_text, "%H:%M").time()
+    except ValueError:
+        await update.message.reply_text(
+            "❌ Formato ora non valido.\n"
+            "Usa il formato HH:MM (es. 14:30).\n\n"
+            "Riprova o usa /annulla per annullare."
+        )
+        return ConversationState.WAITING_SERVIZIO_TIME.value
+
     nome = context.user_data.get("servizio_nome")
+    service_date = context.user_data.get("servizio_date")
+
+    # Combine date and time
+    service_datetime = datetime.combine(service_date, service_time)
 
     # Create the service
-    servizio = await Servizio.objects.acreate(
+    await Servizio.objects.acreate(
         nome=nome,
-        date=service_date,
+        data_ora=service_datetime,
     )
 
     await update.message.reply_text(
         f"✅ Servizio creato!\n\n"
         f"📌 {nome}\n"
-        f"📅 {service_date:%d/%m/%Y}\n\n"
+        f"📅 {service_datetime:%d/%m/%Y %H:%M}\n\n"
         f"Il sondaggio di disponibilità è stato inviato."
     )
 
     # Clean up user data
     context.user_data.pop("servizio_nome", None)
+    context.user_data.pop("servizio_date", None)
 
     return ConversationHandler.END
 
@@ -549,6 +581,9 @@ def create_application() -> Application:
             ],
             ConversationState.WAITING_SERVIZIO_DATE.value: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_date),
+            ],
+            ConversationState.WAITING_SERVIZIO_TIME.value: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_time),
             ],
         },
         fallbacks=[

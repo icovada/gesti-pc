@@ -12,7 +12,7 @@ from .models import Servizio
 logger = logging.getLogger(__name__)
 
 
-async def _send_poll(servizio_nome, servizio_date):
+async def _send_poll(servizio_nome, servizio_data_ora):
     """Send a native Telegram poll to the configured group chat. Returns (poll_id, message_id)."""
     chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
     token = getattr(settings, "TELEGRAM_BOT_TOKEN", None)
@@ -30,7 +30,7 @@ async def _send_poll(servizio_nome, servizio_date):
     async with bot:
         message = await bot.send_poll(
             chat_id=chat_id,
-            question=f"📢 {servizio_nome} - {servizio_date:%d/%m/%Y}\nSei disponibile?",
+            question=f"📢 {servizio_nome} - {servizio_data_ora:%d/%m/%Y %H:%M}\nSei disponibile?",
             options=["✅ Sì", "❌ No", "🤔 Forse"],
             is_anonymous=False,
             allows_multiple_answers=False,
@@ -46,7 +46,7 @@ def send_availability_poll(servizio: Servizio) -> None:
         return
 
     # Send the poll (async)
-    poll_id, message_id = asyncio.run(_send_poll(servizio.nome, servizio.date))
+    poll_id, message_id = asyncio.run(_send_poll(servizio.nome, servizio.data_ora))
 
     if poll_id:
         # Update the database after the async call completes

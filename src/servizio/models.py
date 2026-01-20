@@ -32,7 +32,7 @@ class VolontarioServizioMap(models.Model):
 
 class Servizio(models.Model):
     pkid = models.UUIDField(default=uuid4, primary_key=True)
-    date = models.DateField()
+    data_ora = models.DateTimeField()
     nome = models.CharField(max_length=150)
     volontari = models.ManyToManyField(to=Volontario, through=VolontarioServizioMap)
     poll_id = models.CharField(max_length=100, null=True, blank=True, unique=True)
@@ -43,7 +43,7 @@ class Servizio(models.Model):
         verbose_name_plural = "Servizi"
 
     def __str__(self) -> str:
-        return f"{self.nome} - {self.date:%d/%m/%Y}"
+        return f"{self.nome} - {self.data_ora:%d/%m/%Y %H:%M}"
 
 
 class Timbratura(models.Model):
