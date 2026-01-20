@@ -35,6 +35,8 @@ class Servizio(models.Model):
     date = models.DateField()
     nome = models.CharField(max_length=150)
     volontari = models.ManyToManyField(to=Volontario, through=VolontarioServizioMap)
+    poll_id = models.CharField(max_length=100, null=True, blank=True, unique=True)
+    poll_message_id = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Servizio"

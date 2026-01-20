@@ -381,10 +381,6 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-# Store poll_id -> servizio_id mapping
-poll_to_servizio: dict[str, str] = {}
-
-
 async def nuovo_servizio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start the new service creation flow."""
     volontario = await get_linked_volontario(update)
@@ -455,37 +451,14 @@ async def handle_servizio_date(
     await update.message.reply_text(
         f"✅ Servizio creato!\n\n"
         f"📌 {nome}\n"
-        f"📅 {service_date:%d/%m/%Y}"
+        f"📅 {service_date:%d/%m/%Y}\n\n"
+        f"Il sondaggio di disponibilità è stato inviato."
     )
-
-    # Send survey to the configured group chat
-    await send_availability_poll(context.bot, servizio)
 
     # Clean up user data
     context.user_data.pop("servizio_nome", None)
 
     return ConversationHandler.END
-
-
-async def send_availability_poll(bot, servizio: Servizio) -> None:
-    """Send a native Telegram poll to the configured group chat."""
-    chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
-
-    if not chat_id:
-        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping poll")
-        return
-
-    message = await bot.send_poll(
-        chat_id=chat_id,
-        question=f"📢 {servizio.nome} - {servizio.date:%d/%m/%Y}\nSei disponibile?",
-        options=["✅ Sì", "❌ No", "🤔 Forse"],
-        is_anonymous=False,
-        allows_multiple_answers=False,
-    )
-
-    # Store the mapping for handling responses
-    poll_to_servizio[message.poll.id] = str(servizio.pkid)
-    logger.info(f"Created poll {message.poll.id} for servizio {servizio.pkid}")
 
 
 async def handle_poll_answer(
@@ -497,10 +470,11 @@ async def handle_poll_answer(
     poll_id = answer.poll_id
     option_ids = answer.option_ids
 
-    # Get servizio from poll mapping
-    servizio_id = poll_to_servizio.get(poll_id)
-    if not servizio_id:
-        logger.debug(f"Poll {poll_id} not tracked, ignoring")
+    # Get servizio from database by poll_id
+    try:
+        servizio = await Servizio.objects.aget(poll_id=poll_id)
+    except Servizio.DoesNotExist:
+        logger.debug(f"Poll {poll_id} not associated with any servizio, ignoring")
         return
 
     # Check if user is linked
@@ -530,9 +504,9 @@ async def handle_poll_answer(
         risposta = None
 
     # Save or update the response
-    mapping, created = await VolontarioServizioMap.objects.aupdate_or_create(
+    await VolontarioServizioMap.objects.aupdate_or_create(
         fkvolontario=volontario,
-        fkservizio_id=servizio_id,
+        fkservizio=servizio,
         defaults={
             "risposta": risposta,
             "risposta_at": timezone.now() if risposta else None,
@@ -541,7 +515,7 @@ async def handle_poll_answer(
 
     logger.info(
         f"Poll answer: {volontario.nome} {volontario.cognome} "
-        f"responded '{risposta}' for servizio {servizio_id} (created={created})"
+        f"responded '{risposta}' for servizio {servizio.nome}"
     )
 
 
