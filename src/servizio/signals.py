@@ -3,7 +3,7 @@ import logging
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from telegram import Bot
 
@@ -67,3 +67,37 @@ def servizio_created(sender, instance, created, **kwargs):
         logger.info(f"New servizio created: {instance.nome}, sending poll")
         # Use on_commit to ensure the transaction is complete before sending
         transaction.on_commit(lambda: send_availability_poll(instance))
+
+
+async def _delete_poll_message(chat_id, message_id):
+    """Delete a poll message from Telegram."""
+    token = getattr(settings, "TELEGRAM_BOT_TOKEN", None)
+    if not token:
+        logger.warning("TELEGRAM_BOT_TOKEN not configured, cannot delete message")
+        return
+
+    bot = Bot(token=token)
+    async with bot:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+
+
+def delete_poll_message(message_id: int) -> None:
+    """Delete the poll message from Telegram."""
+    chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
+    if not chat_id:
+        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, cannot delete message")
+        return
+
+    try:
+        asyncio.run(_delete_poll_message(chat_id, message_id))
+        logger.info(f"Deleted poll message {message_id}")
+    except Exception as e:
+        logger.error(f"Failed to delete poll message {message_id}: {e}")
+
+
+@receiver(pre_delete, sender=Servizio)
+def servizio_deleted(sender, instance, **kwargs):
+    """Delete the associated poll message when a Servizio is deleted."""
+    if instance.poll_message_id:
+        logger.info(f"Servizio {instance.pkid} deleted, removing poll message {instance.poll_message_id}")
+        delete_poll_message(instance.poll_message_id)
