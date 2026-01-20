@@ -37,6 +37,7 @@ class Servizio(models.Model):
     volontari = models.ManyToManyField(to=Volontario, through=VolontarioServizioMap)
     poll_id = models.CharField(max_length=100, null=True, blank=True, unique=True)
     poll_message_id = models.BigIntegerField(null=True, blank=True)
+    notification_sent = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Servizio"

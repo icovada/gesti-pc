@@ -2,6 +2,8 @@ import logging
 from datetime import datetime
 from enum import Enum, auto
 
+from datetime import timedelta
+
 from django.utils import timezone
 from telegram import Update
 from telegram.ext import (
@@ -558,6 +560,57 @@ async def handle_web_login_callback(
         )
 
 
+async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Check for upcoming servizi and send reminders to volunteers."""
+    now = timezone.now()
+    reminder_window_start = now + timedelta(minutes=9)
+    reminder_window_end = now + timedelta(minutes=11)
+
+    # Find servizi starting in ~10 minutes that haven't been notified yet
+    upcoming_servizi = Servizio.objects.filter(
+        data_ora__gte=reminder_window_start,
+        data_ora__lte=reminder_window_end,
+        notification_sent=False,
+    )
+
+    async for servizio in upcoming_servizi:
+        # Get all volunteers associated with this servizio (those who responded)
+        
+        participants = servizio.volontarioserviziomap_set.exclude(
+            risposta=VolontarioServizioMap.Risposta.NO,
+        ).select_related("fkvolontario")
+
+        async for answer in participants:
+            volontario = answer.fkvolontario
+            # Get the telegram user for this volontario
+            try:
+                tg_user = await TelegramUser.objects.aget(volontario=volontario)
+            except TelegramUser.DoesNotExist:
+                logger.debug(f"No telegram user for volontario {volontario.pkid}")
+                continue
+
+            # Send personal reminder
+            risposta_text = answer.get_risposta_display() if answer.risposta else "non data"
+            try:
+                await context.bot.send_message(
+                    chat_id=tg_user.chat_id,
+                    text=(
+                        f"⏰ Promemoria!\n\n"
+                        f"Il servizio \"{servizio.nome}\" inizia tra 10 minuti.\n"
+                        f"📅 {servizio.data_ora:%d/%m/%Y %H:%M}\n\n"
+                        f"La tua risposta: {risposta_text}"
+                    ),
+                )
+                logger.info(f"Sent reminder to {volontario.nome} for servizio {servizio.nome}")
+            except Exception as e:
+                logger.error(f"Failed to send reminder to {tg_user.chat_id}: {e}")
+
+        # Mark servizio as notified
+        servizio.notification_sent = True
+        await servizio.asave(update_fields=["notification_sent"])
+        logger.info(f"Marked servizio {servizio.pkid} as notified")
+
+
 async def handle_poll_answer(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -622,6 +675,10 @@ def create_application() -> Application:
         raise ValueError("TELEGRAM_BOT_TOKEN non configurato in settings.py")
 
     application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+
+    # Schedule job to check for upcoming servizi every minute
+    job_queue = application.job_queue
+    job_queue.run_repeating(send_servizio_reminders, interval=60, first=10)
 
     # Conversation handler for /start and association flow
     start_conv_handler = ConversationHandler(
