@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from enum import Enum, auto
 
 from django.utils import timezone
@@ -9,13 +10,15 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler,
     MessageHandler,
+    PollAnswerHandler,
     filters,
 )
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
-from .models import LoginToken, TelegramUser, TimeEntry
+from .models import LoginToken, TelegramUser
+from servizio.models import Servizio, Timbratura
 from volontario.models import Volontario
 
 User = get_user_model()
@@ -25,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 class ConversationState(Enum):
     WAITING_CODICE_FISCALE = auto()
+    WAITING_SERVIZIO_NAME = auto()
+    WAITING_SERVIZIO_DATE = auto()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | None:
@@ -158,6 +163,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 "/entrata - Registra entrata\n"
                 "/uscita - Registra uscita\n"
                 "/ore - Riepilogo ore del mese\n"
+                "/nuovoservizio - Crea un nuovo servizio\n"
                 "/login - Ottieni link di accesso al sito\n"
                 "/help - Mostra questo messaggio"
             )
@@ -242,8 +248,8 @@ async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     # Check if already clocked in
-    open_entry = await TimeEntry.objects.filter(
-        volontario=volontario,
+    open_entry = await Timbratura.objects.filter(
+        fkvolontario=volontario,
         clock_out__isnull=True,
     ).afirst()
 
@@ -255,7 +261,7 @@ async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     # Create new time entry
-    entry = await TimeEntry.objects.acreate(volontario=volontario)
+    entry = await Timbratura.objects.acreate(volontario=volontario)
 
     await update.message.reply_text(
         f"✅ Entrata registrata alle {entry.clock_in:%H:%M}.\n\n"
@@ -270,8 +276,8 @@ async def clock_out(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     # Find open entry
-    open_entry = await TimeEntry.objects.filter(
-        volontario=volontario,
+    open_entry = await Timbratura.objects.filter(
+        fkvolontario=volontario,
         clock_out__isnull=True,
     ).afirst()
 
@@ -308,8 +314,8 @@ async def hours_summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Get completed entries for this month
-    entries = TimeEntry.objects.filter(
-        volontario=volontario,
+    entries = Timbratura.objects.filter(
+        fkvolontario=volontario,
         clock_in__gte=month_start,
         clock_out__isnull=False,
     )
@@ -321,8 +327,8 @@ async def hours_summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         entry_count += 1
 
     # Check for open entry
-    open_entry = await TimeEntry.objects.filter(
-        volontario=volontario,
+    open_entry = await Timbratura.objects.filter(
+       fkvolontario=volontario,
         clock_out__isnull=True,
     ).afirst()
 
@@ -375,6 +381,154 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+# Store poll_id -> servizio_id mapping
+poll_to_servizio: dict[str, str] = {}
+
+
+async def nuovo_servizio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Start the new service creation flow."""
+    volontario = await get_linked_volontario(update)
+    if not volontario:
+        return ConversationHandler.END
+
+    await update.message.reply_text(
+        "📋 Creazione nuovo servizio\n\n"
+        "Inserisci il nome del servizio:"
+    )
+    return ConversationState.WAITING_SERVIZIO_NAME.value
+
+
+async def handle_servizio_name(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle service name input."""
+    nome = update.message.text.strip()
+
+    if len(nome) < 3:
+        await update.message.reply_text(
+            "❌ Il nome deve essere di almeno 3 caratteri.\n"
+            "Riprova o usa /annulla per annullare."
+        )
+        return ConversationState.WAITING_SERVIZIO_NAME.value
+
+    if len(nome) > 150:
+        await update.message.reply_text(
+            "❌ Il nome non può superare i 150 caratteri.\n"
+            "Riprova o usa /annulla per annullare."
+        )
+        return ConversationState.WAITING_SERVIZIO_NAME.value
+
+    context.user_data["servizio_nome"] = nome
+
+    await update.message.reply_text(
+        f"Nome: {nome}\n\n"
+        "Inserisci la data del servizio (formato: GG/MM/AAAA):"
+    )
+    return ConversationState.WAITING_SERVIZIO_DATE.value
+
+
+async def handle_servizio_date(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle service date input and create the service."""
+    date_text = update.message.text.strip()
+
+    # Parse date
+    try:
+        service_date = datetime.strptime(date_text, "%d/%m/%Y").date()
+    except ValueError:
+        await update.message.reply_text(
+            "❌ Formato data non valido.\n"
+            "Usa il formato GG/MM/AAAA (es. 25/01/2026).\n\n"
+            "Riprova o usa /annulla per annullare."
+        )
+        return ConversationState.WAITING_SERVIZIO_DATE.value
+
+    nome = context.user_data.get("servizio_nome")
+
+    # Create the service
+    servizio = await Servizio.objects.acreate(
+        nome=nome,
+        date=service_date,
+    )
+
+    await update.message.reply_text(
+        f"✅ Servizio creato!\n\n"
+        f"📌 {nome}\n"
+        f"📅 {service_date:%d/%m/%Y}"
+    )
+
+    # Send survey to the configured group chat
+    await send_availability_poll(context.bot, servizio)
+
+    # Clean up user data
+    context.user_data.pop("servizio_nome", None)
+
+    return ConversationHandler.END
+
+
+async def send_availability_poll(bot, servizio: Servizio) -> None:
+    """Send a native Telegram poll to the configured group chat."""
+    chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
+
+    if not chat_id:
+        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping poll")
+        return
+
+    message = await bot.send_poll(
+        chat_id=chat_id,
+        question=f"📢 {servizio.nome} - {servizio.date:%d/%m/%Y}\nSei disponibile?",
+        options=["✅ Sì", "❌ No", "🤔 Forse"],
+        is_anonymous=False,
+        allows_multiple_answers=False,
+    )
+
+    # Store the mapping for handling responses
+    poll_to_servizio[message.poll.id] = str(servizio.pkid)
+    logger.info(f"Created poll {message.poll.id} for servizio {servizio.pkid}")
+
+
+async def handle_poll_answer(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle poll answer from users."""
+    answer = update.poll_answer
+    user_id = answer.user.id
+    poll_id = answer.poll_id
+    option_ids = answer.option_ids
+
+    # Get servizio from poll mapping
+    servizio_id = poll_to_servizio.get(poll_id)
+    if not servizio_id:
+        logger.debug(f"Poll {poll_id} not tracked, ignoring")
+        return
+
+    # Check if user is linked
+    try:
+        tg_user = await TelegramUser.objects.select_related("volontario").aget(
+            telegram_id=user_id
+        )
+        if not tg_user.is_linked:
+            logger.info(f"Unlinked user {user_id} answered poll {poll_id}")
+            return
+        volontario = tg_user.volontario
+    except TelegramUser.DoesNotExist:
+        logger.info(f"Unknown user {user_id} answered poll {poll_id}")
+        return
+
+    # Map option index to response
+    response_map = {0: "sì", 1: "no", 2: "forse"}
+    if option_ids:
+        response = response_map.get(option_ids[0], "sconosciuto")
+    else:
+        response = "rimosso"
+
+    logger.info(
+        f"Poll answer: {volontario.nome} {volontario.cognome} "
+        f"responded '{response}' for servizio {servizio_id}"
+    )
+
+
 def create_application() -> Application:
     """Create and configure the bot application."""
     if not settings.TELEGRAM_BOT_TOKEN:
@@ -383,7 +537,7 @@ def create_application() -> Application:
     application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
 
     # Conversation handler for /start and association flow
-    conv_handler = ConversationHandler(
+    start_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
             ConversationState.WAITING_CODICE_FISCALE.value: [
@@ -396,13 +550,32 @@ def create_application() -> Application:
         ],
     )
 
-    application.add_handler(conv_handler)
+    # Conversation handler for /nuovoservizio
+    servizio_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("nuovoservizio", nuovo_servizio)],
+        states={
+            ConversationState.WAITING_SERVIZIO_NAME.value: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_name),
+            ],
+            ConversationState.WAITING_SERVIZIO_DATE.value: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_date),
+            ],
+        },
+        fallbacks=[
+            CommandHandler("annulla", cancel),
+            CommandHandler("cancel", cancel),
+        ],
+    )
+
+    application.add_handler(start_conv_handler)
+    application.add_handler(servizio_conv_handler)
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("profilo", profile))
     application.add_handler(CommandHandler("entrata", clock_in))
     application.add_handler(CommandHandler("uscita", clock_out))
     application.add_handler(CommandHandler("ore", hours_summary))
     application.add_handler(CommandHandler("login", login))
+    application.add_handler(PollAnswerHandler(handle_poll_answer))
 
     return application
 

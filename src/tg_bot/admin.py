@@ -1,6 +1,7 @@
 from django.contrib import admin
 
-from .models import TelegramUser, TimeEntry
+from .models import TelegramUser
+from servizio.models import Timbratura
 
 
 @admin.register(TelegramUser)
@@ -37,21 +38,21 @@ class TelegramUserAdmin(admin.ModelAdmin):
         return self.has_module_permission(request)
 
 
-@admin.register(TimeEntry)
-class TimeEntryAdmin(admin.ModelAdmin):
+@admin.register(Timbratura)
+class TimbraturaAdmin(admin.ModelAdmin):
     list_display = [
-        "volontario",
+        "fkvolontario",
         "clock_in",
         "clock_out",
         "duration_display",
     ]
-    list_filter = ["clock_in", "volontario__fkorganizzazione"]
+    list_filter = ["clock_in", "fkvolontario__fkorganizzazione"]
     search_fields = [
-        "volontario__nome",
-        "volontario__cognome",
-        "volontario__codice_fiscale",
+        "fkvolontario__nome",
+        "fkvolontario__cognome",
+        "fkvolontario__codice_fiscale",
     ]
-    raw_id_fields = ["volontario"]
+    raw_id_fields = ["fkvolontario"]
     readonly_fields = ["pkid", "created_at", "duration_display"]
     date_hierarchy = "clock_in"
 

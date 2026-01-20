@@ -1,6 +1,5 @@
 import secrets
 from datetime import timedelta
-from uuid import uuid4
 
 from django.conf import settings
 from django.db import models
@@ -77,39 +76,3 @@ class TelegramUser(models.Model):
     @property
     def is_linked(self) -> bool:
         return self.volontario_id is not None
-
-
-class TimeEntry(models.Model):
-    """Tracks volunteer clock in/out times."""
-
-    pkid = models.UUIDField(primary_key=True, default=uuid4)
-    volontario = models.ForeignKey(
-        Volontario,
-        on_delete=models.CASCADE,
-        related_name="time_entries",
-    )
-    clock_in = models.DateTimeField(default=timezone.now)
-    clock_out = models.DateTimeField(null=True, blank=True)
-    notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = "Registrazione Ore"
-        verbose_name_plural = "Registrazioni Ore"
-        ordering = ["-clock_in"]
-
-    def __str__(self) -> str:
-        status = "in corso" if self.clock_out is None else "completato"
-        return f"{self.volontario} - {self.clock_in:%d/%m/%Y %H:%M} ({status})"
-
-    @property
-    def is_open(self) -> bool:
-        return self.clock_out is None
-
-    @property
-    def duration(self):
-        """Returns duration in minutes, or None if still open."""
-        if self.clock_out is None:
-            return None
-        delta = self.clock_out - self.clock_in
-        return delta.total_seconds() / 60

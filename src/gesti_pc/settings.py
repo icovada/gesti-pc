@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'volontario',
     'campo',
     'tg_bot',
+    'servizio',
 ]
 
 MIDDLEWARE = [
@@ -120,7 +121,10 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # Telegram Bot Configuration
-TELEGRAM_BOT_TOKEN = ''  # Set via environment variable in production
+TELEGRAM_BOT_TOKEN = ""  # Set via environment variable in production
 
 # Site URL for generating login links
 SITE_URL = 'http://localhost:8000'  # Set to your domain in production
+
+# Telegram group chat ID for sending surveys
+TELEGRAM_SURVEY_CHAT_ID = "" # Set to the group chat ID where surveys should be sent
