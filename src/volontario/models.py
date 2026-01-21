@@ -1,6 +1,7 @@
 from uuid import uuid4
 from django.conf import settings
 from django.db import models
+from django.db.models.functions import Upper
 from django.contrib import admin
 from django.forms import ValidationError
 
@@ -36,8 +37,8 @@ class CodiceFiscaleField(models.CharField):
         if value is None:
             return value
         if isinstance(value, CodiceFiscale):
-            return value.cf  # or value.code if that's the attribute
-        return value
+            return value.cf.upper()
+        return value.upper()
 
 
 class Organizzazione(models.Model):
@@ -53,7 +54,7 @@ class Organizzazione(models.Model):
 
 
 class Volontario(models.Model):
-    codice_fiscale = CodiceFiscaleField(primary_key=True, null=False, blank=False)
+    codice_fiscale = CodiceFiscaleField(primary_key=True, unique=True, null=False, blank=False)
     nome = models.CharField(max_length=30)
     cognome = models.CharField(max_length=30)
     fkorganizzazione = models.ForeignKey(
@@ -74,6 +75,12 @@ class Volontario(models.Model):
     class Meta:
         verbose_name = "Volontario"
         verbose_name_plural = "Volontari"
+        constraints = [
+            models.UniqueConstraint(
+                Upper("codice_fiscale"),
+                name="unique_codice_fiscale_case_insensitive",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.nome} {self.cognome} - {self.fkorganizzazione if self.fkorganizzazione else ''}"
