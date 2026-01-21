@@ -16,10 +16,10 @@ async def _send_poll(servizio_nome, servizio_data_ora):
     """Send a native Telegram poll to the configured group chat. Returns (poll_id, message_id)."""
     chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
     token = getattr(settings, "TELEGRAM_BOT_TOKEN", None)
-    thread_id = getattr(settings, "TELEGRAM_SURVEY_TOPIC_ID", None)
+    thread_id = getattr(settings, "TELEGRAM_SURVEY_THREAD_ID", None)
 
     if not chat_id:
-        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping poll")
+        logger.warning("TELEGRAM_SURVEY_THREAD_ID not configured, skipping poll")
         return None, None
 
     if not token:
