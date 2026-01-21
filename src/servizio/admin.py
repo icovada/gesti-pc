@@ -26,7 +26,13 @@ class VolontarioServizioMapAdmin(admin.ModelAdmin):
 
 @admin.register(Timbratura)
 class TimbraturaAdmin(admin.ModelAdmin):
-    list_display = ["fkvolontario", "clock_in", "clock_out", "duration_display", "fkservizio"]
+    list_display = [
+        "fkvolontario",
+        "clock_in",
+        "clock_out",
+        "duration_display",
+        "fkservizio",
+    ]
     list_filter = ["clock_in", "fkservizio"]
     search_fields = ["fkvolontario__nome", "fkvolontario__cognome"]
     raw_id_fields = ["fkvolontario", "fkservizio"]

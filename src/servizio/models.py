@@ -17,7 +17,9 @@ class VolontarioServizioMap(models.Model):
     pkid = models.UUIDField(default=uuid4, primary_key=True)
     fkvolontario = models.ForeignKey(Volontario, on_delete=models.CASCADE, null=False)
     fkservizio = models.ForeignKey("Servizio", on_delete=models.CASCADE, null=False)
-    risposta = models.CharField(max_length=10, choices=Risposta.choices, null=True, blank=True)
+    risposta = models.CharField(
+        max_length=10, choices=Risposta.choices, null=True, blank=True
+    )
     risposta_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -60,7 +62,9 @@ class Timbratura(models.Model):
     clock_out = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    fkservizio = models.ForeignKey(Servizio, on_delete=models.PROTECT, null=True, blank=True)
+    fkservizio = models.ForeignKey(
+        Servizio, on_delete=models.PROTECT, null=True, blank=True
+    )
 
     class Meta:
         verbose_name = "Registrazione Ore"

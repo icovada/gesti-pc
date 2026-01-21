@@ -4,7 +4,13 @@ from datetime import datetime, timedelta
 from enum import Enum, auto
 
 from django.utils import timezone
-from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update
+from telegram import (
+    BotCommand,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    LinkPreviewOptions,
+    Update,
+)
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -107,9 +113,11 @@ async def handle_codice_fiscale(
         return ConversationState.WAITING_CODICE_FISCALE.value
 
     # Check if volontario is already linked to another telegram account
-    existing_link = await TelegramUser.objects.filter(
-        volontario=volontario
-    ).exclude(telegram_id=user.id).afirst()
+    existing_link = (
+        await TelegramUser.objects.filter(volontario=volontario)
+        .exclude(telegram_id=user.id)
+        .afirst()
+    )
 
     if existing_link:
         await update.message.reply_text(
@@ -146,8 +154,7 @@ async def handle_codice_fiscale(
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancel the current conversation."""
     await update.message.reply_text(
-        "Operazione annullata.\n"
-        "Usa /start per ricominciare."
+        "Operazione annullata.\nUsa /start per ricominciare."
     )
     return ConversationHandler.END
 
@@ -191,8 +198,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except TelegramUser.DoesNotExist:
         await update.message.reply_text(
-            "❌ Non sei ancora registrato.\n"
-            "Usa /start per associare il tuo account."
+            "❌ Non sei ancora registrato.\nUsa /start per associare il tuo account."
         )
         return
 
@@ -208,6 +214,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     org_name = "Non assegnata"
     if volontario.fkorganizzazione_id:
         from volontario.models import Organizzazione
+
         try:
             org = await Organizzazione.objects.aget(pk=volontario.fkorganizzazione_id)
             org_name = org.name
@@ -229,8 +236,7 @@ async def get_linked_volontario(update: Update) -> Volontario | None:
         tg_user = await TelegramUser.objects.aget(telegram_id=user.id)
     except TelegramUser.DoesNotExist:
         await update.message.reply_text(
-            "❌ Non sei ancora registrato.\n"
-            "Usa /start per associare il tuo account."
+            "❌ Non sei ancora registrato.\nUsa /start per associare il tuo account."
         )
         return None
 
@@ -331,7 +337,7 @@ async def hours_summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # Check for open entry
     open_entry = await Timbratura.objects.filter(
-       fkvolontario=volontario,
+        fkvolontario=volontario,
         clock_out__isnull=True,
     ).afirst()
 
@@ -361,8 +367,7 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except TelegramUser.DoesNotExist:
         await update.message.reply_text(
-            "❌ Non sei ancora registrato.\n"
-            "Usa /start per associare il tuo account."
+            "❌ Non sei ancora registrato.\nUsa /start per associare il tuo account."
         )
         return
 
@@ -445,8 +450,7 @@ async def nuovo_servizio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return ConversationHandler.END
 
     await update.message.reply_text(
-        "📋 Creazione nuovo servizio\n\n"
-        "Inserisci il nome del servizio:"
+        "📋 Creazione nuovo servizio\n\nInserisci il nome del servizio:"
     )
     return ConversationState.WAITING_SERVIZIO_NAME.value
 
@@ -474,8 +478,7 @@ async def handle_servizio_name(
     context.user_data["servizio_nome"] = nome
 
     await update.message.reply_text(
-        f"Nome: {nome}\n\n"
-        "Inserisci la data del servizio (formato: GG/MM/AAAA):"
+        f"Nome: {nome}\n\nInserisci la data del servizio (formato: GG/MM/AAAA):"
     )
     return ConversationState.WAITING_SERVIZIO_DATE.value
 
@@ -576,7 +579,9 @@ async def handle_web_login_callback(
     # Check if already processed
     if login_request.status != WebLoginRequest.Status.PENDING:
         status_text = login_request.get_status_display()
-        await query.edit_message_text(f"Questa richiesta è già stata elaborata: {status_text}")
+        await query.edit_message_text(
+            f"Questa richiesta è già stata elaborata: {status_text}"
+        )
         return
 
     # Check if expired
@@ -587,11 +592,13 @@ async def handle_web_login_callback(
         return
 
     # Fetch volontario details separately for async context
-    volontario_data = await WebLoginRequest.objects.filter(token=token).values(
-        'volontario__nome', 'volontario__cognome'
-    ).afirst()
-    volontario_nome = volontario_data['volontario__nome']
-    volontario_cognome = volontario_data['volontario__cognome']
+    volontario_data = (
+        await WebLoginRequest.objects.filter(token=token)
+        .values("volontario__nome", "volontario__cognome")
+        .afirst()
+    )
+    volontario_nome = volontario_data["volontario__nome"]
+    volontario_cognome = volontario_data["volontario__cognome"]
 
     # Process the action
     if action == "approve":
@@ -631,11 +638,15 @@ async def handle_clock_in_callback(
     try:
         tg_user = await TelegramUser.objects.aget(telegram_id=user_id)
     except TelegramUser.DoesNotExist:
-        await query.edit_message_text("❌ Non sei registrato. Usa /start per associare il tuo account.")
+        await query.edit_message_text(
+            "❌ Non sei registrato. Usa /start per associare il tuo account."
+        )
         return
 
     if not tg_user.is_linked:
-        await query.edit_message_text("❌ Il tuo account non è associato. Usa /start per completare l'associazione.")
+        await query.edit_message_text(
+            "❌ Il tuo account non è associato. Usa /start per completare l'associazione."
+        )
         return
 
     volontario = await Volontario.objects.aget(pk=tg_user.volontario_id)
@@ -667,7 +678,7 @@ async def handle_clock_in_callback(
     )
 
     await query.edit_message_text(
-        f"✅ Entrata registrata alle {entry.clock_in:%H:%M} per il servizio \"{servizio.nome}\".\n\n"
+        f'✅ Entrata registrata alle {entry.clock_in:%H:%M} per il servizio "{servizio.nome}".\n\n'
         f"Buon lavoro! Usa /uscita quando hai finito."
     )
     logger.info(f"Clock-in via button: {volontario.nome} for servizio {servizio.nome}")
@@ -688,7 +699,7 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     async for servizio in upcoming_servizi:
         # Get all volunteers associated with this servizio (those who responded)
-        
+
         participants = servizio.volontarioserviziomap_set.exclude(
             risposta=VolontarioServizioMap.Risposta.NO,
         ).select_related("fkvolontario")
@@ -703,25 +714,33 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                 continue
 
             # Send personal reminder with inline button
-            risposta_text = answer.get_risposta_display() if answer.risposta else "non data"
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton(
-                    "✅ Registra entrata",
-                    callback_data=f"clock_in:{servizio.pkid}",
-                )]
-            ])
+            risposta_text = (
+                answer.get_risposta_display() if answer.risposta else "non data"
+            )
+            keyboard = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "✅ Registra entrata",
+                            callback_data=f"clock_in:{servizio.pkid}",
+                        )
+                    ]
+                ]
+            )
             try:
                 await context.bot.send_message(
                     chat_id=tg_user.chat_id,
                     text=(
                         f"⏰ Promemoria!\n\n"
-                        f"Il servizio \"{servizio.nome}\" inizia tra 10 minuti.\n"
+                        f'Il servizio "{servizio.nome}" inizia tra 10 minuti.\n'
                         f"📅 {servizio.data_ora:%d/%m/%Y %H:%M}\n\n"
                         f"La tua risposta: {risposta_text}"
                     ),
                     reply_markup=keyboard,
                 )
-                logger.info(f"Sent reminder to {volontario.nome} for servizio {servizio.nome}")
+                logger.info(
+                    f"Sent reminder to {volontario.nome} for servizio {servizio.nome}"
+                )
             except Exception as e:
                 logger.error(f"Failed to send reminder to {tg_user.chat_id}: {e}")
 
@@ -810,7 +829,12 @@ def create_application() -> Application:
     if not settings.TELEGRAM_BOT_TOKEN:
         raise ValueError("TELEGRAM_BOT_TOKEN non configurato in settings.py")
 
-    application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).post_init(post_init).build()
+    application = (
+        Application.builder()
+        .token(settings.TELEGRAM_BOT_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
     # Schedule job to check for upcoming servizi every minute
     job_queue = application.job_queue
@@ -859,10 +883,16 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("ore", hours_summary))
     application.add_handler(CommandHandler("login", login))
     application.add_handler(CommandHandler("scan", scan_barcode))
-    application.add_handler(MessageHandler(filters.PHOTO & filters.CaptionRegex(r"^/scan"), scan_barcode))
+    application.add_handler(
+        MessageHandler(filters.PHOTO & filters.CaptionRegex(r"^/scan"), scan_barcode)
+    )
     application.add_handler(PollAnswerHandler(handle_poll_answer))
-    application.add_handler(CallbackQueryHandler(handle_web_login_callback, pattern=r"^web_login:"))
-    application.add_handler(CallbackQueryHandler(handle_clock_in_callback, pattern=r"^clock_in:"))
+    application.add_handler(
+        CallbackQueryHandler(handle_web_login_callback, pattern=r"^web_login:")
+    )
+    application.add_handler(
+        CallbackQueryHandler(handle_clock_in_callback, pattern=r"^clock_in:")
+    )
 
     return application
 

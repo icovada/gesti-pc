@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import LoginToken, TelegramUser
 
+
 @admin.register(TelegramUser)
 class TelegramUserAdmin(admin.ModelAdmin):
     list_display = [

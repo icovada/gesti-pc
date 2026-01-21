@@ -53,19 +53,27 @@ def token_login(request, token: str):
     return redirect("admin:index")
 
 
-async def _send_login_approval_message(chat_id: int, volontario: Volontario, token: str) -> int | None:
+async def _send_login_approval_message(
+    chat_id: int, volontario: Volontario, token: str
+) -> int | None:
     """Send login approval message with inline keyboard. Returns message_id."""
     bot_token = getattr(settings, "TELEGRAM_BOT_TOKEN", None)
     if not bot_token:
         logger.warning("TELEGRAM_BOT_TOKEN not configured")
         return None
 
-    keyboard = InlineKeyboardMarkup([
+    keyboard = InlineKeyboardMarkup(
         [
-            InlineKeyboardButton("✅ Approva", callback_data=f"web_login:approve:{token}"),
-            InlineKeyboardButton("❌ Rifiuta", callback_data=f"web_login:deny:{token}"),
+            [
+                InlineKeyboardButton(
+                    "✅ Approva", callback_data=f"web_login:approve:{token}"
+                ),
+                InlineKeyboardButton(
+                    "❌ Rifiuta", callback_data=f"web_login:deny:{token}"
+                ),
+            ]
         ]
-    ])
+    )
 
     bot = Bot(token=bot_token)
     async with bot:
@@ -125,32 +133,43 @@ def web_login(request):
                         login_request.telegram_message_id = message_id
                         login_request.save(update_fields=["telegram_message_id"])
 
-                        return render(request, "tg_bot/web_login_pending.html", {
-                            "volontario": volontario,
-                            "token": login_request.token,
-                        })
+                        return render(
+                            request,
+                            "tg_bot/web_login_pending.html",
+                            {
+                                "volontario": volontario,
+                                "token": login_request.token,
+                            },
+                        )
                     else:
                         login_request.delete()
                         error = "Errore nell'invio del messaggio Telegram. Riprova."
 
-    return render(request, "tg_bot/web_login.html", {
-        "error": error,
-        "codice_fiscale": codice_fiscale,
-    })
+    return render(
+        request,
+        "tg_bot/web_login.html",
+        {
+            "error": error,
+            "codice_fiscale": codice_fiscale,
+        },
+    )
 
 
 @require_GET
 def web_login_status(request, token: str):
     """Check status of a web login request (polled by frontend)."""
     try:
-        login_request = WebLoginRequest.objects.select_related(
-            "volontario__user"
-        ).get(token=token)
+        login_request = WebLoginRequest.objects.select_related("volontario__user").get(
+            token=token
+        )
     except WebLoginRequest.DoesNotExist:
         return JsonResponse({"status": "not_found"}, status=404)
 
     # Check if expired
-    if login_request.status == WebLoginRequest.Status.PENDING and not login_request.is_pending:
+    if (
+        login_request.status == WebLoginRequest.Status.PENDING
+        and not login_request.is_pending
+    ):
         login_request.status = WebLoginRequest.Status.EXPIRED
         login_request.save(update_fields=["status"])
 
@@ -159,14 +178,18 @@ def web_login_status(request, token: str):
         volontario = login_request.volontario
         if volontario.user:
             login(request, volontario.user)
-            return JsonResponse({
-                "status": "approved",
-                "redirect_url": "/admin/",
-            })
+            return JsonResponse(
+                {
+                    "status": "approved",
+                    "redirect_url": "/admin/",
+                }
+            )
         else:
-            return JsonResponse({
-                "status": "error",
-                "message": "Account non configurato correttamente.",
-            })
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Account non configurato correttamente.",
+                }
+            )
 
     return JsonResponse({"status": login_request.status})

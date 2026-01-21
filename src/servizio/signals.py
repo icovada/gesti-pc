@@ -101,5 +101,7 @@ def delete_poll_message(message_id: int) -> None:
 def servizio_deleted(sender, instance, **kwargs):
     """Delete the associated poll message when a Servizio is deleted."""
     if instance.poll_message_id:
-        logger.info(f"Servizio {instance.pkid} deleted, removing poll message {instance.poll_message_id}")
+        logger.info(
+            f"Servizio {instance.pkid} deleted, removing poll message {instance.poll_message_id}"
+        )
         delete_poll_message(instance.poll_message_id)

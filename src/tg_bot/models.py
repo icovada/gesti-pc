@@ -15,7 +15,9 @@ def generate_login_token():
 class LoginToken(models.Model):
     """One-time login token sent via Telegram bot."""
 
-    token = models.CharField(max_length=64, primary_key=True, default=generate_login_token)
+    token = models.CharField(
+        max_length=64, primary_key=True, default=generate_login_token
+    )
     telegram_user = models.ForeignKey(
         "TelegramUser",
         on_delete=models.CASCADE,
@@ -87,7 +89,9 @@ class WebLoginRequest(models.Model):
         DENIED = "denied", "Rifiutato"
         EXPIRED = "expired", "Scaduto"
 
-    token = models.CharField(max_length=64, primary_key=True, default=generate_login_token)
+    token = models.CharField(
+        max_length=64, primary_key=True, default=generate_login_token
+    )
     volontario = models.ForeignKey(
         Volontario,
         on_delete=models.CASCADE,
