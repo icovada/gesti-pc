@@ -135,5 +135,8 @@ TELEGRAM_SURVEY_CHAT_ID = os.getenv(
     "TELEGRAM_SURVEY_CHAT_ID"
 ) # Set to the group chat ID where surveys should be sent
 
+# Telegram forum topic ID for sending polls (optional, for forum-enabled groups)
+TELEGRAM_SURVEY_THREAD_ID = os.getenv("TELEGRAM_SURVEY_THREAD_ID")
+
 STATIC_ROOT = os.getenv("STATIC_ROOT")
 MEDIA_ROOT = os.getenv("MEDIA_ROOT")
