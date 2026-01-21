@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +27,7 @@ SECRET_KEY = 'django-insecure-8x+sawt8#f#-zm#_8v=wci)b7pn99efpf!i$-^8tu1_tcxw^(e
 DEBUG = True
 
 ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [os.getenv("ALLOWED_HOSTS", "*")]
 
 
 # Application definition
@@ -121,10 +123,17 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # Telegram Bot Configuration
-TELEGRAM_BOT_TOKEN = ""  # Set via environment variable in production
+TELEGRAM_BOT_TOKEN = os.getenv(
+    "TELEGRAM_BOT_TOKEN"
+)  # Set via environment variable in production
 
 # Site URL for generating login links
-SITE_URL = 'http://localhost:8000'  # Set to your domain in production
+SITE_URL = os.getenv("SITE_URL", 'http://localhost:8000')  # Set to your domain in production
 
 # Telegram group chat ID for sending surveys
-TELEGRAM_SURVEY_CHAT_ID = "" # Set to the group chat ID where surveys should be sent
+TELEGRAM_SURVEY_CHAT_ID = os.getenv(
+    "TELEGRAM_SURVEY_CHAT_ID"
+) # Set to the group chat ID where surveys should be sent
+
+STATIC_ROOT = os.getenv("STATIC_ROOT")
+MEDIA_ROOT = os.getenv("MEDIA_ROOT")
