@@ -687,8 +687,8 @@ async def handle_clock_in_callback(
 async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Check for upcoming servizi and send reminders to volunteers."""
     now = timezone.now()
-    reminder_window_start = now + timedelta(minutes=9)
-    reminder_window_end = now + timedelta(minutes=11)
+    reminder_window_start = now + timedelta(minutes=25)
+    reminder_window_end = now + timedelta(minutes=31)
 
     # Find servizi starting in ~10 minutes that haven't been notified yet
     upcoming_servizi = Servizio.objects.filter(
@@ -732,7 +732,7 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                     chat_id=tg_user.chat_id,
                     text=(
                         f"⏰ Promemoria!\n\n"
-                        f'Il servizio "{servizio.nome}" inizia tra 10 minuti.\n'
+                        f'Il servizio "{servizio.nome}" inizia tra 30 minuti.\n'
                         f"📅 {servizio.data_ora:%d/%m/%Y %H:%M}\n\n"
                         f"La tua risposta: {risposta_text}"
                     ),
