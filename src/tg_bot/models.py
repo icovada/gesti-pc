@@ -59,7 +59,6 @@ class TelegramUser(models.Model):
         blank=True,
         related_name="telegram_user",
     )
-    chat_id = models.BigIntegerField(null=True, blank=True)
     username = models.CharField(max_length=32, blank=True, null=True)
     first_name = models.CharField(max_length=64, blank=True, null=True)
     last_name = models.CharField(max_length=64, blank=True, null=True)

@@ -44,13 +44,13 @@ class ConversationState(Enum):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | None:
     """Handle the /start command."""
     user = update.effective_user
-    chat_id = update.effective_chat.id
+    if not user:
+        return None
 
     # Get or create TelegramUser
     tg_user, created = await TelegramUser.objects.aget_or_create(
         telegram_id=user.id,
         defaults={
-            "chat_id": chat_id,
             "username": user.username,
             "first_name": user.first_name,
             "last_name": user.last_name,
@@ -59,7 +59,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | Non
 
     # Update user info if changed
     if not created:
-        tg_user.chat_id = chat_id
         tg_user.username = user.username
         tg_user.first_name = user.first_name
         tg_user.last_name = user.last_name
@@ -729,7 +728,7 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             try:
                 await context.bot.send_message(
-                    chat_id=tg_user.chat_id,
+                    chat_id=tg_user.telegram_id,
                     text=(
                         f"⏰ Promemoria!\n\n"
                         f'Il servizio "{servizio.nome}" inizia tra 30 minuti.\n'
@@ -742,7 +741,7 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                     f"Sent reminder to {volontario.nome} for servizio {servizio.nome}"
                 )
             except Exception as e:
-                logger.error(f"Failed to send reminder to {tg_user.chat_id}: {e}")
+                logger.error(f"Failed to send reminder to {tg_user.telegram_id}: {e}")
 
         # Mark servizio as notified
         servizio.notification_sent = True

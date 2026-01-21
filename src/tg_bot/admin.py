@@ -16,7 +16,7 @@ class TelegramUserAdmin(admin.ModelAdmin):
     list_filter = ["created_at"]
     search_fields = ["telegram_id", "username", "first_name", "last_name"]
     raw_id_fields = ["volontario"]
-    readonly_fields = ["telegram_id", "chat_id", "created_at", "updated_at"]
+    readonly_fields = ["telegram_id", "created_at", "updated_at"]
 
     def has_module_permission(self, request):
         """Only show in admin sidebar for superusers or IT Admin group."""

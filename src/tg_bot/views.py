@@ -123,7 +123,7 @@ def web_login(request):
                     # Send Telegram message with approval buttons
                     message_id = asyncio.run(
                         _send_login_approval_message(
-                            telegram_user.chat_id,
+                            telegram_user.telegram_id,
                             volontario,
                             login_request.token,
                         )
