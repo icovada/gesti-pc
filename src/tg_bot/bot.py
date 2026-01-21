@@ -808,6 +808,46 @@ async def handle_poll_answer(
     )
 
 
+async def greet_new_member(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Greet new members joining the chat and prompt them to enable the bot."""
+    for member in update.message.new_chat_members:
+        # Skip if the bot itself joined
+        if member.id == context.bot.id:
+            continue
+
+        # Save telegram user to database for potential manual activation later
+        tg_user, created = await TelegramUser.objects.aget_or_create(
+            telegram_id=member.id,
+            defaults={
+                "username": member.username,
+                "first_name": member.first_name,
+                "last_name": member.last_name,
+            },
+        )
+
+        if not created:
+            # Update info if user already existed
+            tg_user.username = member.username
+            tg_user.first_name = member.first_name
+            tg_user.last_name = member.last_name
+            await tg_user.asave()
+
+        logger.info(
+            f"New member joined: {member.first_name} (@{member.username}) - "
+            f"TelegramUser {'created' if created else 'updated'}"
+        )
+
+        await update.message.reply_text(
+            f"Ciao {member.first_name}! 👋\n\n"
+            f"Benvenuto nel gruppo!\n\n"
+            f"Per utilizzare il bot e accedere a tutte le funzionalità, "
+            f"avvia una chat privata con me e usa il comando /start per "
+            f"associare il tuo account Telegram al tuo profilo volontario."
+        )
+
+
 async def post_init(application: Application) -> None:
     """Register bot commands in the Telegram menu."""
     commands = [
@@ -892,6 +932,9 @@ def create_application() -> Application:
     )
     application.add_handler(
         CallbackQueryHandler(handle_clock_in_callback, pattern=r"^clock_in:")
+    )
+    application.add_handler(
+        MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_member)
     )
 
     return application
