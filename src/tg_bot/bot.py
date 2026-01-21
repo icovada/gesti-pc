@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from enum import Enum, auto
 
 from django.utils import timezone
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -789,12 +789,28 @@ async def handle_poll_answer(
     )
 
 
+async def post_init(application: Application) -> None:
+    """Register bot commands in the Telegram menu."""
+    commands = [
+        BotCommand("start", "Avvia il bot"),
+        BotCommand("help", "Mostra i comandi disponibili"),
+        BotCommand("profilo", "Visualizza il tuo profilo"),
+        BotCommand("entrata", "Registra entrata"),
+        BotCommand("uscita", "Registra uscita"),
+        BotCommand("ore", "Riepilogo ore del mese"),
+        BotCommand("nuovoservizio", "Crea un nuovo servizio"),
+        BotCommand("login", "Ottieni link di accesso al sito"),
+    ]
+    await application.bot.set_my_commands(commands)
+    logger.info("Bot commands registered")
+
+
 def create_application() -> Application:
     """Create and configure the bot application."""
     if not settings.TELEGRAM_BOT_TOKEN:
         raise ValueError("TELEGRAM_BOT_TOKEN non configurato in settings.py")
 
-    application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+    application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).post_init(post_init).build()
 
     # Schedule job to check for upcoming servizi every minute
     job_queue = application.job_queue
