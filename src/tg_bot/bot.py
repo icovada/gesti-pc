@@ -841,9 +841,8 @@ async def greet_new_member(
 
         await update.message.reply_text(
             f"Ciao {member.first_name}! 👋\n\n"
-            f"Benvenuto nel gruppo!\n\n"
             f"Per utilizzare il bot e accedere a tutte le funzionalità, "
-            f"avvia una chat privata con me e usa il comando /start per "
+            f"avvia una chat privata con me per "
             f"associare il tuo account Telegram al tuo profilo volontario."
         )
 
