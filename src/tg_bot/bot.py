@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from enum import Enum, auto
 
 from django.utils import timezone
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -381,6 +381,7 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"🔐 Ecco il tuo link di accesso:\n\n"
         f"{login_url}\n\n"
         f"⚠️ Il link è valido per 10 minuti e può essere usato una sola volta.",
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
 
