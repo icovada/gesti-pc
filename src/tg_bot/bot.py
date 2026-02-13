@@ -26,7 +26,14 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from .models import LoginToken, TelegramUser, WebLoginRequest
-from servizio.models import Servizio, ServizioType, Timbratura, VolontarioServizioMap
+from servizio.models import (
+    ChecklistItem,
+    ScheduledTask,
+    Servizio,
+    ServizioType,
+    Timbratura,
+    VolontarioServizioMap,
+)
 from volontario.models import Volontario
 
 User = get_user_model()
@@ -972,6 +979,242 @@ async def greet_new_member(
         )
 
 
+async def _build_checklist_message(task: ScheduledTask) -> tuple[str, InlineKeyboardMarkup | None]:
+    """Build checklist message text and keyboard for a ScheduledTask."""
+    completed_lines = []
+    pending_buttons = []
+
+    async for item in ChecklistItem.objects.filter(
+        scheduled_task=task
+    ).select_related("completato_da").order_by("ordine"):
+        if item.completato:
+            nome = item.completato_da.nome if item.completato_da else "?"
+            ora = item.completato_at.strftime("%H:%M") if item.completato_at else ""
+            completed_lines.append(f"✅ {item.descrizione} - {nome} ({ora})")
+        else:
+            pending_buttons.append([
+                InlineKeyboardButton(
+                    item.descrizione,
+                    callback_data=f"chk:{item.pkid}",
+                )
+            ])
+
+    text = f"Checklist: {task.nome}\n"
+    if completed_lines:
+        text += "\n" + "\n".join(completed_lines)
+
+    keyboard = InlineKeyboardMarkup(pending_buttons) if pending_buttons else None
+    return text, keyboard
+
+
+async def _send_checklist_message(bot, chat_id: int, task: ScheduledTask) -> None:
+    """Send a checklist message with inline buttons to a chat."""
+    text, keyboard = await _build_checklist_message(task)
+    await bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        reply_markup=keyboard,
+    )
+
+
+async def _handle_task_completion(bot, task: ScheduledTask) -> None:
+    """Handle completion of all checklist items."""
+    task.completed = True
+    task.completed_at = timezone.now()
+    await task.asave(update_fields=["completed", "completed_at"])
+
+    # Close all open timbrature for this task
+    now = timezone.now()
+    async for t in Timbratura.objects.filter(
+        fkscheduled_task=task, clock_out__isnull=True
+    ):
+        t.clock_out = now
+        await t.asave(update_fields=["clock_out"])
+
+    # Notify staff users
+    staff_tg_users = TelegramUser.objects.filter(
+        volontario__user__is_staff=True,
+        volontario__isnull=False,
+    )
+    async for tg_user in staff_tg_users:
+        try:
+            await bot.send_message(
+                chat_id=tg_user.telegram_id,
+                text=(
+                    f"Attivita completata!\n\n"
+                    f"{task.nome}\n"
+                    f"Tutti gli elementi della checklist sono stati completati.\n"
+                    f"Le timbrature aperte sono state chiuse automaticamente."
+                ),
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify staff {tg_user.telegram_id}: {e}")
+
+
+async def send_scheduled_task_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send reminders 48h before ScheduledTask deadline."""
+    now = timezone.now()
+    window_start = now + timedelta(hours=47, minutes=55)
+    window_end = now + timedelta(hours=48, minutes=5)
+
+    tasks = ScheduledTask.objects.filter(
+        deadline__gte=window_start,
+        deadline__lte=window_end,
+        notification_sent=False,
+        completed=False,
+    )
+
+    async for task in tasks:
+        async for volontario in task.volontari.all():
+            try:
+                tg_user = await TelegramUser.objects.aget(volontario=volontario)
+            except TelegramUser.DoesNotExist:
+                continue
+
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    "Inizia Timbratura",
+                    callback_data=f"task_start:{task.pkid}",
+                )]
+            ])
+
+            try:
+                await context.bot.send_message(
+                    chat_id=tg_user.telegram_id,
+                    text=(
+                        f"Attivita programmata in scadenza!\n\n"
+                        f"{task.nome}\n"
+                        f"Scadenza: {task.deadline:%d/%m/%Y %H:%M}\n\n"
+                        f"Premi il pulsante per registrare la tua entrata e "
+                        f"visualizzare la checklist."
+                    ),
+                    reply_markup=keyboard,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to send task reminder to {tg_user.telegram_id}: {e}"
+                )
+
+        task.notification_sent = True
+        await task.asave(update_fields=["notification_sent"])
+        logger.info(f"Sent reminders for scheduled task {task.pkid} ({task.nome})")
+
+
+async def handle_task_start_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle clock-in for a scheduled task."""
+    query = update.callback_query
+    await query.answer()
+
+    task_pkid = query.data.split(":", 1)[1]
+
+    # Resolve volontario
+    user_id = query.from_user.id
+    try:
+        tg_user = await TelegramUser.objects.aget(telegram_id=user_id)
+    except TelegramUser.DoesNotExist:
+        await query.edit_message_text("Non sei registrato. Usa /start.")
+        return
+    if not tg_user.is_linked:
+        await query.edit_message_text("Account non associato. Usa /start.")
+        return
+    volontario = await Volontario.objects.aget(pk=tg_user.volontario_id)
+
+    # Get task
+    try:
+        task = await ScheduledTask.objects.aget(pkid=task_pkid)
+    except ScheduledTask.DoesNotExist:
+        await query.edit_message_text("Attivita non trovata.")
+        return
+
+    # Verify assignment
+    is_assigned = await task.volontari.filter(pk=volontario.pk).aexists()
+    if not is_assigned:
+        await query.edit_message_text("Non sei assegnato a questa attivita.")
+        return
+
+    # Check for open timbratura
+    open_entry = await Timbratura.objects.filter(
+        fkvolontario=volontario, clock_out__isnull=True
+    ).afirst()
+    if open_entry:
+        await query.edit_message_text(
+            f"Hai gia un'entrata aperta dalle {open_entry.clock_in:%H:%M del %d/%m/%Y}.\n"
+            f"Usa /uscita prima di iniziare."
+        )
+        return
+
+    # Create timbratura linked to scheduled task
+    entry = await Timbratura.objects.acreate(
+        fkvolontario=volontario, fkscheduled_task=task
+    )
+
+    await query.edit_message_text(
+        f"Entrata registrata alle {entry.clock_in:%H:%M} per \"{task.nome}\"."
+    )
+
+    # Send checklist message
+    await _send_checklist_message(context.bot, tg_user.telegram_id, task)
+    logger.info(f"Clock-in via task button: {volontario.nome} for task {task.nome}")
+
+
+async def handle_checklist_toggle_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle toggling a checklist item."""
+    query = update.callback_query
+    await query.answer()
+
+    item_pkid = query.data.split(":", 1)[1]
+
+    # Resolve volontario
+    user_id = query.from_user.id
+    try:
+        tg_user = await TelegramUser.objects.aget(telegram_id=user_id)
+    except TelegramUser.DoesNotExist:
+        return
+    if not tg_user.is_linked:
+        return
+    volontario = await Volontario.objects.aget(pk=tg_user.volontario_id)
+
+    # Get checklist item
+    try:
+        item = await ChecklistItem.objects.select_related("scheduled_task").aget(
+            pkid=item_pkid
+        )
+    except ChecklistItem.DoesNotExist:
+        return
+
+    task = item.scheduled_task
+
+    # Verify assignment
+    is_assigned = await task.volontari.filter(pk=volontario.pk).aexists()
+    if not is_assigned:
+        return
+
+    # Mark as complete
+    item.completato = True
+    item.completato_da = volontario
+    item.completato_at = timezone.now()
+    await item.asave(update_fields=["completato", "completato_da", "completato_at"])
+
+    # Rebuild and update message
+    text, keyboard = await _build_checklist_message(task)
+    try:
+        await query.edit_message_text(text=text, reply_markup=keyboard)
+    except Exception:
+        pass  # Message unchanged (race condition)
+
+    # Check if all items are now complete
+    remaining = await ChecklistItem.objects.filter(
+        scheduled_task=task, completato=False
+    ).acount()
+
+    if remaining == 0 and not task.completed:
+        await _handle_task_completion(context.bot, task)
+
+
 async def post_init(application: Application) -> None:
     """Register bot commands in the Telegram menu."""
     commands = [
@@ -1004,6 +1247,7 @@ def create_application() -> Application:
     job_queue = application.job_queue
     job_queue.run_repeating(send_servizio_reminders, interval=60, first=10)
     job_queue.run_repeating(close_expired_polls, interval=300, first=15)
+    job_queue.run_repeating(send_scheduled_task_reminders, interval=60, first=20)
 
     # Conversation handler for /start and association flow
     start_conv_handler = ConversationHandler(
@@ -1067,6 +1311,12 @@ def create_application() -> Application:
     )
     application.add_handler(
         CallbackQueryHandler(handle_clock_in_callback, pattern=r"^clock_in:")
+    )
+    application.add_handler(
+        CallbackQueryHandler(handle_task_start_callback, pattern=r"^task_start:")
+    )
+    application.add_handler(
+        CallbackQueryHandler(handle_checklist_toggle_callback, pattern=r"^chk:")
     )
     application.add_handler(
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_member)

@@ -7,7 +7,7 @@ from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from telegram import Bot
 
-from .models import Servizio
+from .models import ChecklistItem, ChecklistTemplateItem, ScheduledTask, Servizio
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,34 @@ def delete_poll_message(message_id: int) -> None:
         logger.info(f"Deleted poll message {message_id}")
     except Exception as e:
         logger.error(f"Failed to delete poll message {message_id}: {e}")
+
+
+@receiver(post_save, sender=ScheduledTask)
+def scheduled_task_created(sender, instance, created, **kwargs):
+    """Copy checklist template items when a new ScheduledTask is created."""
+    if not created:
+        return
+    if not instance.type_id:
+        return
+
+    template_items = ChecklistTemplateItem.objects.filter(
+        servizio_type_id=instance.type_id
+    ).order_by("ordine")
+
+    checklist_items = [
+        ChecklistItem(
+            scheduled_task=instance,
+            descrizione=t.descrizione,
+            ordine=t.ordine,
+        )
+        for t in template_items
+    ]
+    if checklist_items:
+        ChecklistItem.objects.bulk_create(checklist_items)
+        logger.info(
+            f"Created {len(checklist_items)} checklist items for "
+            f"scheduled task {instance.pkid}"
+        )
 
 
 @receiver(pre_delete, sender=Servizio)
