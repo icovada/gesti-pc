@@ -1266,6 +1266,7 @@ def create_application() -> Application:
     # Conversation handler for /nuovoservizio
     servizio_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("nuovoservizio", nuovo_servizio)],
+        per_message=False,  # One conversation per user at a time, no need for per-message tracking
         states={
             ConversationState.WAITING_SERVIZIO_TYPE.value: [
                 CallbackQueryHandler(
