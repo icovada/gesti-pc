@@ -11,8 +11,8 @@ class ServizioTypeAdmin(admin.ModelAdmin):
 
 @admin.register(Servizio)
 class ServizioAdmin(admin.ModelAdmin):
-    list_display = ["nome", "type", "data_ora", "volontari_count"]
-    list_filter = ["type", "data_ora"]
+    list_display = ["nome", "type", "data_ora", "send_message", "volontari_count"]
+    list_filter = ["type", "data_ora", "send_message"]
     search_fields = ["nome"]
     date_hierarchy = "data_ora"
 

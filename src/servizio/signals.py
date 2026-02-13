@@ -65,7 +65,7 @@ def send_availability_poll(servizio: Servizio) -> None:
 @receiver(post_save, sender=Servizio)
 def servizio_created(sender, instance, created, **kwargs):
     """Send availability poll when a new Servizio is created."""
-    if created and not instance.poll_id:
+    if created and not instance.poll_id and instance.send_message:
         logger.info(f"New servizio created: {instance.nome}, sending poll")
         # Use on_commit to ensure the transaction is complete before sending
         transaction.on_commit(lambda: send_availability_poll(instance))
