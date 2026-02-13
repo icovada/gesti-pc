@@ -162,6 +162,7 @@ class Timbratura(models.Model):
         blank=True,
         related_name="timbrature",
     )
+    checklist_message_id = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Registrazione Ore"

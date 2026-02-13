@@ -1007,14 +1007,15 @@ async def _build_checklist_message(task: ScheduledTask) -> tuple[str, InlineKeyb
     return text, keyboard
 
 
-async def _send_checklist_message(bot, chat_id: int, task: ScheduledTask) -> None:
-    """Send a checklist message with inline buttons to a chat."""
+async def _send_checklist_message(bot, chat_id: int, task: ScheduledTask) -> int:
+    """Send a checklist message with inline buttons to a chat. Returns message_id."""
     text, keyboard = await _build_checklist_message(task)
-    await bot.send_message(
+    msg = await bot.send_message(
         chat_id=chat_id,
         text=text,
         reply_markup=keyboard,
     )
+    return msg.message_id
 
 
 async def _handle_task_completion(bot, task: ScheduledTask) -> None:
@@ -1165,8 +1166,10 @@ async def handle_task_start_callback(
         text=f"Entrata registrata alle {entry.clock_in:%H:%M} per \"{task.nome}\".",
     )
 
-    # Send checklist message
-    await _send_checklist_message(context.bot, chat_id, task)
+    # Send checklist message and store its ID on the timbratura
+    msg_id = await _send_checklist_message(context.bot, chat_id, task)
+    entry.checklist_message_id = msg_id
+    await entry.asave(update_fields=["checklist_message_id"])
     logger.info(f"Clock-in via task button: {volontario.nome} for task {task.nome}")
 
 
@@ -1210,12 +1213,26 @@ async def handle_checklist_toggle_callback(
     item.completato_at = timezone.now()
     await item.asave(update_fields=["completato", "completato_da", "completato_at"])
 
-    # Rebuild and update message
+    # Rebuild checklist and update ALL tracked messages for this task
     text, keyboard = await _build_checklist_message(task)
-    try:
-        await query.edit_message_text(text=text, reply_markup=keyboard)
-    except Exception:
-        pass  # Message unchanged (race condition)
+    async for entry in Timbratura.objects.filter(
+        fkscheduled_task=task, checklist_message_id__isnull=False
+    ).select_related("fkvolontario"):
+        try:
+            tg_user = await TelegramUser.objects.aget(
+                volontario=entry.fkvolontario
+            )
+        except TelegramUser.DoesNotExist:
+            continue
+        try:
+            await context.bot.edit_message_text(
+                chat_id=tg_user.telegram_id,
+                message_id=entry.checklist_message_id,
+                text=text,
+                reply_markup=keyboard,
+            )
+        except Exception:
+            pass  # Message unchanged or deleted
 
     # Check if all items are now complete
     remaining = await ChecklistItem.objects.filter(
