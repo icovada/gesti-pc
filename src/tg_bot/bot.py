@@ -1105,7 +1105,7 @@ async def handle_task_start_callback(
 ) -> None:
     """Handle clock-in for a scheduled task."""
     query = update.callback_query
-    await query.answer()
+    chat_id = query.message.chat_id
 
     task_pkid = query.data.split(":", 1)[1]
 
@@ -1114,10 +1114,10 @@ async def handle_task_start_callback(
     try:
         tg_user = await TelegramUser.objects.aget(telegram_id=user_id)
     except TelegramUser.DoesNotExist:
-        await query.edit_message_text("Non sei registrato. Usa /start.")
+        await query.answer("Non sei registrato. Usa /start.", show_alert=True)
         return
     if not tg_user.is_linked:
-        await query.edit_message_text("Account non associato. Usa /start.")
+        await query.answer("Account non associato. Usa /start.", show_alert=True)
         return
     volontario = await Volontario.objects.aget(pk=tg_user.volontario_id)
 
@@ -1125,13 +1125,21 @@ async def handle_task_start_callback(
     try:
         task = await ScheduledTask.objects.aget(pkid=task_pkid)
     except ScheduledTask.DoesNotExist:
-        await query.edit_message_text("Attivita non trovata.")
+        await query.answer("Attivita non trovata.", show_alert=True)
         return
 
     # Verify assignment
     is_assigned = await task.volontari.filter(pk=volontario.pk).aexists()
     if not is_assigned:
-        await query.edit_message_text("Non sei assegnato a questa attivita.")
+        await query.answer("Non sei assegnato a questa attivita.", show_alert=True)
+        return
+
+    # Check for existing timbratura for this task
+    existing_entry = await Timbratura.objects.filter(
+        fkvolontario=volontario, fkscheduled_task=task
+    ).afirst()
+    if existing_entry:
+        await query.answer("Hai gia registrato l'entrata per questa attivita.", show_alert=True)
         return
 
     # Check for open timbratura
@@ -1139,9 +1147,10 @@ async def handle_task_start_callback(
         fkvolontario=volontario, clock_out__isnull=True
     ).afirst()
     if open_entry:
-        await query.edit_message_text(
+        await query.answer(
             f"Hai gia un'entrata aperta dalle {open_entry.clock_in:%H:%M del %d/%m/%Y}.\n"
-            f"Usa /uscita prima di iniziare."
+            f"Usa /uscita prima di iniziare.",
+            show_alert=True,
         )
         return
 
@@ -1150,12 +1159,14 @@ async def handle_task_start_callback(
         fkvolontario=volontario, fkscheduled_task=task
     )
 
-    await query.edit_message_text(
-        f"Entrata registrata alle {entry.clock_in:%H:%M} per \"{task.nome}\"."
+    await query.answer()
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=f"Entrata registrata alle {entry.clock_in:%H:%M} per \"{task.nome}\".",
     )
 
     # Send checklist message
-    await _send_checklist_message(context.bot, tg_user.telegram_id, task)
+    await _send_checklist_message(context.bot, chat_id, task)
     logger.info(f"Clock-in via task button: {volontario.nome} for task {task.nome}")
 
 
