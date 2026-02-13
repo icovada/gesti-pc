@@ -776,6 +776,39 @@ async def handle_clock_in_callback(
     logger.info(f"Clock-in via button: {volontario.nome} for servizio {servizio.nome}")
 
 
+async def close_expired_polls(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Close polls for servizi starting within 12 hours."""
+    now = timezone.now()
+    cutoff = now + timedelta(hours=12)
+
+    # Find servizi with open polls that start within 24 hours
+    servizi_to_close = Servizio.objects.filter(
+        data_ora__lte=cutoff,
+        poll_message_id__isnull=False,
+        poll_closed=False,
+    )
+
+    chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
+    if not chat_id:
+        return
+
+    async for servizio in servizi_to_close:
+        if not servizio.poll_message_id:
+            continue
+        try:
+            await context.bot.stop_poll(
+                chat_id=chat_id,
+                message_id=servizio.poll_message_id,
+            )
+            logger.info(f"Closed poll for servizio {servizio.pkid} ({servizio.nome})")
+        except Exception as e:
+            logger.error(
+                f"Failed to close poll for servizio {servizio.pkid}: {e}"
+            )
+        servizio.poll_closed = True
+        await servizio.asave(update_fields=["poll_closed"])
+
+
 async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Check for upcoming servizi and send reminders to volunteers."""
     now = timezone.now()
@@ -967,9 +1000,10 @@ def create_application() -> Application:
         .build()
     )
 
-    # Schedule job to check for upcoming servizi every minute
+    # Schedule jobs
     job_queue = application.job_queue
     job_queue.run_repeating(send_servizio_reminders, interval=60, first=10)
+    job_queue.run_repeating(close_expired_polls, interval=300, first=15)
 
     # Conversation handler for /start and association flow
     start_conv_handler = ConversationHandler(

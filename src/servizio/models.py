@@ -55,6 +55,7 @@ class Servizio(models.Model):
     poll_id = models.CharField(max_length=100, null=True, blank=True, unique=True)
     poll_message_id = models.BigIntegerField(null=True, blank=True)
     send_message = models.BooleanField(default=True)
+    poll_closed = models.BooleanField(default=False)
     notification_sent = models.BooleanField(default=False)
 
     class Meta:
