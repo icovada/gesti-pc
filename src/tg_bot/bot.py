@@ -1072,6 +1072,14 @@ async def send_scheduled_task_reminders(context: ContextTypes.DEFAULT_TYPE) -> N
             except TelegramUser.DoesNotExist:
                 continue
 
+            # Build a plain-text preview of checklist items
+            checklist_lines = []
+            async for item in ChecklistItem.objects.filter(
+                scheduled_task=task
+            ).order_by("ordine"):
+                checklist_lines.append(f"- {item.descrizione}")
+            checklist_text = "\n".join(checklist_lines)
+
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton(
                     "Inizia Timbratura",
@@ -1086,8 +1094,8 @@ async def send_scheduled_task_reminders(context: ContextTypes.DEFAULT_TYPE) -> N
                         f"Attivita programmata in scadenza!\n\n"
                         f"{task.nome}\n"
                         f"Scadenza: {task.deadline:%d/%m/%Y %H:%M}\n\n"
-                        f"Premi il pulsante per registrare la tua entrata e "
-                        f"visualizzare la checklist."
+                        f"Checklist:\n{checklist_text}\n\n"
+                        f"Premi il pulsante per registrare la tua entrata."
                     ),
                     reply_markup=keyboard,
                 )
@@ -1161,6 +1169,13 @@ async def handle_task_start_callback(
     )
 
     await query.answer()
+
+    # Delete the reminder message with the inline button
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+
     await context.bot.send_message(
         chat_id=chat_id,
         text=f"Entrata registrata alle {entry.clock_in:%H:%M} per \"{task.nome}\".",
