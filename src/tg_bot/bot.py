@@ -26,7 +26,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from .models import LoginToken, TelegramUser, WebLoginRequest
-from servizio.models import Servizio, Timbratura, VolontarioServizioMap
+from servizio.models import Servizio, ServizioType, Timbratura, VolontarioServizioMap
 from volontario.models import Volontario
 
 User = get_user_model()
@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 
 class ConversationState(Enum):
     WAITING_CODICE_FISCALE = auto()
+    WAITING_SERVIZIO_TYPE = auto()
+    WAITING_SERVIZIO_NEW_TYPE = auto()
     WAITING_SERVIZIO_NAME = auto()
     WAITING_SERVIZIO_DATE = auto()
     WAITING_SERVIZIO_TIME = auto()
@@ -448,8 +450,86 @@ async def nuovo_servizio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not volontario:
         return ConversationHandler.END
 
+    # Build inline keyboard with existing types + "Nuovo tipo"
+    types = []
+    async for st in ServizioType.objects.all().order_by("nome"):
+        types.append(st)
+
+    buttons = [
+        [InlineKeyboardButton(st.nome, callback_data=f"stype:{st.pkid}")]
+        for st in types
+    ]
+    buttons.append(
+        [InlineKeyboardButton("➕ Nuovo tipo", callback_data="stype:new")]
+    )
+
     await update.message.reply_text(
-        "📋 Creazione nuovo servizio\n\nInserisci il nome del servizio:"
+        "📋 Creazione nuovo servizio\n\nSeleziona il tipo di servizio:",
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+    return ConversationState.WAITING_SERVIZIO_TYPE.value
+
+
+async def handle_servizio_type_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle service type selection from inline keyboard."""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    if not data.startswith("stype:"):
+        return ConversationState.WAITING_SERVIZIO_TYPE.value
+
+    choice = data.split(":", 1)[1]
+
+    if choice == "new":
+        await query.edit_message_text(
+            "📋 Creazione nuovo servizio\n\n"
+            "Inserisci il nome del nuovo tipo di servizio:"
+        )
+        return ConversationState.WAITING_SERVIZIO_NEW_TYPE.value
+
+    # Existing type selected
+    try:
+        servizio_type = await ServizioType.objects.aget(pkid=choice)
+    except ServizioType.DoesNotExist:
+        await query.edit_message_text("❌ Tipo non trovato. Riprova con /nuovoservizio.")
+        return ConversationHandler.END
+
+    context.user_data["servizio_type_id"] = str(servizio_type.pkid)
+    await query.edit_message_text(
+        f"Tipo: {servizio_type.nome}\n\nInserisci il nome del servizio:"
+    )
+    return ConversationState.WAITING_SERVIZIO_NAME.value
+
+
+async def handle_servizio_new_type(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle new service type name input."""
+    nome = update.message.text.strip()
+
+    if len(nome) < 2:
+        await update.message.reply_text(
+            "❌ Il nome del tipo deve essere di almeno 2 caratteri.\n"
+            "Riprova o usa /annulla per annullare."
+        )
+        return ConversationState.WAITING_SERVIZIO_NEW_TYPE.value
+
+    if len(nome) > 150:
+        await update.message.reply_text(
+            "❌ Il nome del tipo non può superare i 150 caratteri.\n"
+            "Riprova o usa /annulla per annullare."
+        )
+        return ConversationState.WAITING_SERVIZIO_NEW_TYPE.value
+
+    servizio_type, created = await ServizioType.objects.aget_or_create(nome=nome)
+    context.user_data["servizio_type_id"] = str(servizio_type.pkid)
+
+    label = "Nuovo tipo creato" if created else "Tipo esistente selezionato"
+    await update.message.reply_text(
+        f"{label}: {servizio_type.nome}\n\nInserisci il nome del servizio:"
     )
     return ConversationState.WAITING_SERVIZIO_NAME.value
 
@@ -527,19 +607,31 @@ async def handle_servizio_time(
 
     nome = context.user_data.get("servizio_nome")
     service_date = context.user_data.get("servizio_date")
+    type_id = context.user_data.get("servizio_type_id")
 
     # Combine date and time
     service_datetime = datetime.combine(service_date, service_time)
+
+    # Get the selected type
+    servizio_type = None
+    if type_id:
+        try:
+            servizio_type = await ServizioType.objects.aget(pkid=type_id)
+        except ServizioType.DoesNotExist:
+            pass
 
     # Create the service
     await Servizio.objects.acreate(
         nome=nome,
         data_ora=service_datetime,
+        type=servizio_type,
     )
 
+    type_line = f"📂 {servizio_type.nome}\n" if servizio_type else ""
     await update.message.reply_text(
         f"✅ Servizio creato!\n\n"
         f"📌 {nome}\n"
+        f"{type_line}"
         f"📅 {service_datetime:%d/%m/%Y %H:%M}\n\n"
         f"Il sondaggio di disponibilità è stato inviato."
     )
@@ -547,6 +639,7 @@ async def handle_servizio_time(
     # Clean up user data
     context.user_data.pop("servizio_nome", None)
     context.user_data.pop("servizio_date", None)
+    context.user_data.pop("servizio_type_id", None)
 
     return ConversationHandler.END
 
@@ -896,6 +989,16 @@ def create_application() -> Application:
     servizio_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("nuovoservizio", nuovo_servizio)],
         states={
+            ConversationState.WAITING_SERVIZIO_TYPE.value: [
+                CallbackQueryHandler(
+                    handle_servizio_type_callback, pattern=r"^stype:"
+                ),
+            ],
+            ConversationState.WAITING_SERVIZIO_NEW_TYPE.value: [
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND, handle_servizio_new_type
+                ),
+            ],
             ConversationState.WAITING_SERVIZIO_NAME.value: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_name),
             ],

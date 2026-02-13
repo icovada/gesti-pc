@@ -32,10 +32,25 @@ class VolontarioServizioMap(models.Model):
         return f"{self.fkvolontario} - {self.fkservizio.nome} ({risposta_display})"
 
 
+class ServizioType(models.Model):
+    pkid = models.UUIDField(default=uuid4, primary_key=True)
+    nome = models.CharField(max_length=150, unique=True)
+
+    class Meta:
+        verbose_name = "Tipo Servizio"
+        verbose_name_plural = "Tipi Servizio"
+
+    def __str__(self) -> str:
+        return self.nome
+
+
 class Servizio(models.Model):
     pkid = models.UUIDField(default=uuid4, primary_key=True)
     data_ora = models.DateTimeField()
     nome = models.CharField(max_length=150)
+    type = models.ForeignKey(
+        ServizioType, on_delete=models.PROTECT, null=True, blank=True
+    )
     volontari = models.ManyToManyField(to=Volontario, through=VolontarioServizioMap)
     poll_id = models.CharField(max_length=100, null=True, blank=True, unique=True)
     poll_message_id = models.BigIntegerField(null=True, blank=True)

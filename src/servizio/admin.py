@@ -1,12 +1,18 @@
 from django.contrib import admin
 
-from .models import Servizio, Timbratura, VolontarioServizioMap
+from .models import Servizio, ServizioType, Timbratura, VolontarioServizioMap
+
+
+@admin.register(ServizioType)
+class ServizioTypeAdmin(admin.ModelAdmin):
+    list_display = ["nome"]
+    search_fields = ["nome"]
 
 
 @admin.register(Servizio)
 class ServizioAdmin(admin.ModelAdmin):
-    list_display = ["nome", "data_ora", "volontari_count"]
-    list_filter = ["data_ora"]
+    list_display = ["nome", "type", "data_ora", "volontari_count"]
+    list_filter = ["type", "data_ora"]
     search_fields = ["nome"]
     date_hierarchy = "data_ora"
 
