@@ -1,4 +1,3 @@
-import io
 import logging
 from datetime import datetime, timedelta
 from enum import Enum, auto
@@ -401,58 +400,6 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
-
-async def scan_barcode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Scan barcode/QR code from a photo."""
-    from PIL import Image
-    from pyzbar.pyzbar import decode
-
-    message = update.message
-
-    # Check if photo was sent
-    if not message.photo:
-        await message.reply_text(
-            "📷 Invia una foto contenente un codice a barre o QR code.\n\n"
-            "Suggerimenti:\n"
-            "• Inquadra il codice ben centrato\n"
-            "• Evita sfocature e riflessi\n"
-            "• Assicurati che ci sia buona illuminazione"
-        )
-        return
-
-    # Get the largest photo size
-    photo = message.photo[-1]
-    file = await photo.get_file()
-
-    # Download to memory
-    image_bytes = io.BytesIO()
-    await file.download_to_memory(image_bytes)
-    image_bytes.seek(0)
-
-    # Decode barcodes
-    image = Image.open(image_bytes)
-    barcodes = decode(image)
-
-    if not barcodes:
-        await message.reply_text(
-            "❌ Nessun codice trovato nell'immagine.\n\n"
-            "Prova a:\n"
-            "• Avvicinare la fotocamera al codice\n"
-            "• Migliorare l'illuminazione\n"
-            "• Evitare angolazioni eccessive"
-        )
-        return
-
-    # Format results
-    results = []
-    for barcode in barcodes:
-        barcode_type = barcode.type
-        barcode_data = barcode.data.decode("utf-8", errors="replace")
-        results.append(f"• [{barcode_type}] {barcode_data}")
-
-    await message.reply_text(
-        f"✅ Trovati {len(barcodes)} codici:\n\n" + "\n".join(results)
-    )
 
 
 async def nuovo_servizio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -1394,10 +1341,6 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("uscita", clock_out))
     application.add_handler(CommandHandler("ore", hours_summary))
     application.add_handler(CommandHandler("login", login))
-    application.add_handler(CommandHandler("scan", scan_barcode))
-    application.add_handler(
-        MessageHandler(filters.PHOTO & filters.CaptionRegex(r"^/scan"), scan_barcode)
-    )
     application.add_handler(PollAnswerHandler(handle_poll_answer))
     application.add_handler(
         CallbackQueryHandler(handle_web_login_callback, pattern=r"^web_login:")
