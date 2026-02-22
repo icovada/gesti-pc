@@ -1,13 +1,16 @@
 from django.contrib import admin
+
+from magazzino.models import Dotazione
+
 from .models import (
-    Organizzazione,
-    Volontario,
-    TipoVeicolo,
-    Veicolo,
-    TipoOggetto,
-    Oggetto,
     Certificazione,
     CertificazioneVolontarioMap,
+    Oggetto,
+    Organizzazione,
+    TipoOggetto,
+    TipoVeicolo,
+    Veicolo,
+    Volontario,
 )
 
 # Register your models here.
@@ -48,6 +51,15 @@ class CertificazioneVolontarioMapInline(admin.TabularInline):
     autocomplete_fields = ["fkcertificazione"]
 
 
+class DotazioneInline(admin.TabularInline):
+    model = Dotazione
+    extra = 1
+    autocomplete_fields = ["tipo"]
+    fields = ["tipo", "taglia", "data_assegnazione", "data_restituzione", "note"]
+    verbose_name = "Dotazione assegnata"
+    verbose_name_plural = "Dotazioni assegnate"
+
+
 @admin.register(Volontario)
 class VolontarioAdmin(admin.ModelAdmin):
     list_display = [
@@ -59,7 +71,7 @@ class VolontarioAdmin(admin.ModelAdmin):
         "luogo_di_nascita",
     ]
     readonly_fields = ["data_di_nascita", "luogo_di_nascita"]
-    inlines = [CertificazioneVolontarioMapInline]
+    inlines = [CertificazioneVolontarioMapInline, DotazioneInline]
     autocomplete_fields = ["fkorganizzazione"]
     search_fields = ["nome", "cognome", "codice_fiscale"]
     list_filter = ["fkorganizzazione"]
