@@ -272,7 +272,7 @@ async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if open_entry:
         await update.message.reply_text(
-            f"⚠️ Hai già un'entrata aperta dalle {open_entry.clock_in:%H:%M del %d/%m/%Y}.\n\n"
+            f"⚠️ Hai già un'entrata aperta dalle {timezone.localtime(open_entry.clock_in):%H:%M del %d/%m/%Y}.\n\n"
             f"Usa /uscita per registrare l'uscita prima di una nuova entrata."
         )
         return
@@ -280,9 +280,13 @@ async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Create new time entry
     entry = await Timbratura.objects.acreate(fkvolontario=volontario)
 
+    clock_out_keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔴 Registra uscita", callback_data="clock_out")]]
+    )
     await update.message.reply_text(
-        f"✅ Entrata registrata alle {entry.clock_in:%H:%M}.\n\n"
-        f"Buon lavoro! Usa /uscita quando hai finito."
+        f"✅ Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M}.\n\n"
+        f"Buon lavoro!",
+        reply_markup=clock_out_keyboard,
     )
 
 
@@ -315,7 +319,7 @@ async def clock_out(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     minutes = int(duration_minutes % 60)
 
     await update.message.reply_text(
-        f"✅ Uscita registrata alle {open_entry.clock_out:%H:%M}.\n\n"
+        f"✅ Uscita registrata alle {timezone.localtime(open_entry.clock_out):%H:%M}.\n\n"
         f"Durata: {hours}h {minutes}m\n"
         f"Grazie per il tuo servizio!"
     )
@@ -352,7 +356,7 @@ async def hours_summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     hours = int(total_minutes // 60)
     minutes = int(total_minutes % 60)
 
-    month_name = now.strftime("%B %Y")
+    month_name = timezone.localtime(now).strftime("%B %Y")
     message = (
         f"📊 Riepilogo ore - {month_name}\n\n"
         f"Totale: {hours}h {minutes}m\n"
@@ -360,7 +364,7 @@ async def hours_summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
     if open_entry:
-        message += f"\n\n⏱️ Entrata in corso dalle {open_entry.clock_in:%H:%M}"
+        message += f"\n\n⏱️ Entrata in corso dalle {timezone.localtime(open_entry.clock_in):%H:%M}"
 
     await update.message.reply_text(message)
 
@@ -616,8 +620,8 @@ async def handle_servizio_time(
     service_date = context.user_data.get("servizio_date")
     type_id = context.user_data.get("servizio_type_id")
 
-    # Combine date and time
-    service_datetime = datetime.combine(service_date, service_time)
+    # Combine date and time, making it timezone-aware in the configured local timezone
+    service_datetime = timezone.make_aware(datetime.combine(service_date, service_time))
 
     # Get the selected type
     servizio_type = None
@@ -765,7 +769,7 @@ async def handle_clock_in_callback(
 
     if open_entry:
         await query.edit_message_text(
-            f"⚠️ Hai già un'entrata aperta dalle {open_entry.clock_in:%H:%M del %d/%m/%Y}.\n\n"
+            f"⚠️ Hai già un'entrata aperta dalle {timezone.localtime(open_entry.clock_in):%H:%M del %d/%m/%Y}.\n\n"
             f"Usa /uscita per registrare l'uscita prima di una nuova entrata."
         )
         return
@@ -776,11 +780,56 @@ async def handle_clock_in_callback(
         fkservizio=servizio,
     )
 
+    clock_out_keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔴 Registra uscita", callback_data="clock_out")]]
+    )
     await query.edit_message_text(
-        f'✅ Entrata registrata alle {entry.clock_in:%H:%M} per il servizio "{servizio.nome}".\n\n'
-        f"Buon lavoro! Usa /uscita quando hai finito."
+        f'✅ Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M} per il servizio "{servizio.nome}".\n\n'
+        f"Buon lavoro!",
+        reply_markup=clock_out_keyboard,
     )
     logger.info(f"Clock-in via button: {volontario.nome} for servizio {servizio.nome}")
+
+
+async def handle_clock_out_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle clock-out button press."""
+    query = update.callback_query
+
+    user_id = query.from_user.id
+    try:
+        tg_user = await TelegramUser.objects.aget(telegram_id=user_id)
+    except TelegramUser.DoesNotExist:
+        await query.answer("Non sei registrato. Usa /start.", show_alert=True)
+        return
+    if not tg_user.is_linked:
+        await query.answer("Account non associato. Usa /start.", show_alert=True)
+        return
+    volontario = await Volontario.objects.aget(pk=tg_user.volontario_id)
+
+    open_entry = await Timbratura.objects.filter(
+        fkvolontario=volontario,
+        clock_out__isnull=True,
+    ).afirst()
+
+    if not open_entry:
+        await query.answer("Nessuna entrata aperta.", show_alert=True)
+        return
+
+    open_entry.clock_out = timezone.now()
+    await open_entry.asave(update_fields=["clock_out"])
+
+    duration_minutes = open_entry.duration
+    hours = int(duration_minutes // 60)
+    minutes = int(duration_minutes % 60)
+
+    await query.edit_message_text(
+        f"✅ Uscita registrata alle {timezone.localtime(open_entry.clock_out):%H:%M}.\n\n"
+        f"Durata: {hours}h {minutes}m\n"
+        f"Grazie per il tuo servizio!"
+    )
+    logger.info(f"Clock-out via button: {volontario.nome}")
 
 
 async def close_expired_polls(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -865,7 +914,7 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                     text=(
                         f"⏰ Promemoria!\n\n"
                         f'Il servizio "{servizio.nome}" inizia tra 30 minuti.\n'
-                        f"📅 {servizio.data_ora:%d/%m/%Y %H:%M}\n\n"
+                        f"📅 {timezone.localtime(servizio.data_ora):%d/%m/%Y %H:%M}\n\n"
                         f"La tua risposta: {risposta_text}"
                     ),
                     reply_markup=keyboard,
@@ -989,7 +1038,7 @@ async def _build_checklist_message(task: ScheduledTask) -> tuple[str, InlineKeyb
     ).select_related("completato_da").order_by("ordine"):
         if item.completato:
             nome = item.completato_da.nome if item.completato_da else "?"
-            ora = item.completato_at.strftime("%H:%M") if item.completato_at else ""
+            ora = timezone.localtime(item.completato_at).strftime("%H:%M") if item.completato_at else ""
             completed_lines.append(f"✅ {item.descrizione} - {nome} ({ora})")
         else:
             pending_buttons.append([
@@ -1093,7 +1142,7 @@ async def send_scheduled_task_reminders(context: ContextTypes.DEFAULT_TYPE) -> N
                     text=(
                         f"Attivita programmata in scadenza!\n\n"
                         f"{task.nome}\n"
-                        f"Scadenza: {task.deadline:%d/%m/%Y %H:%M}\n\n"
+                        f"Scadenza: {timezone.localtime(task.deadline):%d/%m/%Y %H:%M}\n\n"
                         f"Checklist:\n{checklist_text}\n\n"
                         f"Premi il pulsante per registrare la tua entrata."
                     ),
@@ -1157,7 +1206,7 @@ async def handle_task_start_callback(
     ).afirst()
     if open_entry:
         await query.answer(
-            f"Hai gia un'entrata aperta dalle {open_entry.clock_in:%H:%M del %d/%m/%Y}.\n"
+            f"Hai gia un'entrata aperta dalle {timezone.localtime(open_entry.clock_in):%H:%M del %d/%m/%Y}.\n"
             f"Usa /uscita prima di iniziare.",
             show_alert=True,
         )
@@ -1178,7 +1227,7 @@ async def handle_task_start_callback(
 
     await context.bot.send_message(
         chat_id=chat_id,
-        text=f"Entrata registrata alle {entry.clock_in:%H:%M} per \"{task.nome}\".",
+        text=f"Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M} per \"{task.nome}\".",
     )
 
     # Send checklist message and store its ID on the timbratura
@@ -1355,6 +1404,9 @@ def create_application() -> Application:
     )
     application.add_handler(
         CallbackQueryHandler(handle_clock_in_callback, pattern=r"^clock_in:")
+    )
+    application.add_handler(
+        CallbackQueryHandler(handle_clock_out_callback, pattern=r"^clock_out$")
     )
     application.add_handler(
         CallbackQueryHandler(handle_task_start_callback, pattern=r"^task_start:")
