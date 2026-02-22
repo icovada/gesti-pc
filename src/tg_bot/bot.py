@@ -280,9 +280,13 @@ async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Create new time entry
     entry = await Timbratura.objects.acreate(fkvolontario=volontario)
 
+    clock_out_keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔴 Registra uscita", callback_data="clock_out")]]
+    )
     await update.message.reply_text(
         f"✅ Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M}.\n\n"
-        f"Buon lavoro! Usa /uscita quando hai finito."
+        f"Buon lavoro!",
+        reply_markup=clock_out_keyboard,
     )
 
 
@@ -776,11 +780,56 @@ async def handle_clock_in_callback(
         fkservizio=servizio,
     )
 
+    clock_out_keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔴 Registra uscita", callback_data="clock_out")]]
+    )
     await query.edit_message_text(
         f'✅ Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M} per il servizio "{servizio.nome}".\n\n'
-        f"Buon lavoro! Usa /uscita quando hai finito."
+        f"Buon lavoro!",
+        reply_markup=clock_out_keyboard,
     )
     logger.info(f"Clock-in via button: {volontario.nome} for servizio {servizio.nome}")
+
+
+async def handle_clock_out_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle clock-out button press."""
+    query = update.callback_query
+
+    user_id = query.from_user.id
+    try:
+        tg_user = await TelegramUser.objects.aget(telegram_id=user_id)
+    except TelegramUser.DoesNotExist:
+        await query.answer("Non sei registrato. Usa /start.", show_alert=True)
+        return
+    if not tg_user.is_linked:
+        await query.answer("Account non associato. Usa /start.", show_alert=True)
+        return
+    volontario = await Volontario.objects.aget(pk=tg_user.volontario_id)
+
+    open_entry = await Timbratura.objects.filter(
+        fkvolontario=volontario,
+        clock_out__isnull=True,
+    ).afirst()
+
+    if not open_entry:
+        await query.answer("Nessuna entrata aperta.", show_alert=True)
+        return
+
+    open_entry.clock_out = timezone.now()
+    await open_entry.asave(update_fields=["clock_out"])
+
+    duration_minutes = open_entry.duration
+    hours = int(duration_minutes // 60)
+    minutes = int(duration_minutes % 60)
+
+    await query.edit_message_text(
+        f"✅ Uscita registrata alle {timezone.localtime(open_entry.clock_out):%H:%M}.\n\n"
+        f"Durata: {hours}h {minutes}m\n"
+        f"Grazie per il tuo servizio!"
+    )
+    logger.info(f"Clock-out via button: {volontario.nome}")
 
 
 async def close_expired_polls(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1355,6 +1404,9 @@ def create_application() -> Application:
     )
     application.add_handler(
         CallbackQueryHandler(handle_clock_in_callback, pattern=r"^clock_in:")
+    )
+    application.add_handler(
+        CallbackQueryHandler(handle_clock_out_callback, pattern=r"^clock_out$")
     )
     application.add_handler(
         CallbackQueryHandler(handle_task_start_callback, pattern=r"^task_start:")
