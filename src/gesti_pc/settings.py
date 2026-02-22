@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "campo",
     "tg_bot",
     "servizio",
+    "magazzino",
 ]
 
 MIDDLEWARE = [
