@@ -12,7 +12,6 @@ class VolontarioServizioMap(models.Model):
     class Risposta(models.TextChoices):
         SI = "si", "Sì"
         NO = "no", "No"
-        FORSE = "forse", "Forse"
 
     pkid = models.UUIDField(default=uuid4, primary_key=True)
     fkvolontario = models.ForeignKey(Volontario, on_delete=models.CASCADE, null=False)

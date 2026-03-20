@@ -911,7 +911,6 @@ async def handle_poll_answer(
     response_map = {
         0: VolontarioServizioMap.Risposta.SI,
         1: VolontarioServizioMap.Risposta.NO,
-        2: VolontarioServizioMap.Risposta.FORSE,
     }
 
     if option_ids:
