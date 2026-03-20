@@ -1010,6 +1010,16 @@ async def enforce_locked_topic(
         )
     except Exception as e:
         logger.warning(f"Could not delete message {message.message_id}: {e}")
+        return
+
+    if message.from_user:
+        try:
+            await context.bot.send_message(
+                chat_id=message.from_user.id,
+                text="🚫 Il tuo messaggio è stato eliminato perché questo topic è riservato e non accetta messaggi.",
+            )
+        except Exception as e:
+            logger.warning(f"Could not DM user {message.from_user.id} after message deletion: {e}")
 
 
 async def handle_topic_reopened(
