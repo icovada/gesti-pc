@@ -933,6 +933,59 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.info(f"Marked servizio {servizio.pkid} as notified")
 
 
+async def send_clock_out_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send clock-out reminders to volunteers still clocked in when a servizio ends."""
+    now = timezone.now()
+    window_start = now - timedelta(seconds=65)
+
+    # Find servizi whose end time just passed and haven't had the reminder sent yet
+    ended_servizi = Servizio.objects.filter(
+        data_ora_fine__isnull=False,
+        data_ora_fine__gte=window_start,
+        data_ora_fine__lte=now,
+        end_reminder_sent=False,
+    )
+
+    async for servizio in ended_servizi:
+        # Find volunteers still clocked in for this servizio
+        open_entries = Timbratura.objects.filter(
+            fkservizio=servizio,
+            clock_out__isnull=True,
+        ).select_related("fkvolontario")
+
+        async for entry in open_entries:
+            volontario = entry.fkvolontario
+            try:
+                tg_user = await TelegramUser.objects.aget(volontario=volontario)
+            except TelegramUser.DoesNotExist:
+                logger.debug(f"No telegram user for volontario {volontario.pkid}")
+                continue
+
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🔴 Registra uscita", callback_data="clock_out")]]
+            )
+            try:
+                await context.bot.send_message(
+                    chat_id=tg_user.telegram_id,
+                    text=(
+                        f"⏰ Il servizio \"{servizio.nome}\" è terminato.\n\n"
+                        f"Ricordati di registrare l'uscita!"
+                    ),
+                    reply_markup=keyboard,
+                )
+                logger.info(
+                    f"Sent clock-out reminder to {volontario.nome} for servizio {servizio.nome}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to send clock-out reminder to {tg_user.telegram_id}: {e}"
+                )
+
+        servizio.end_reminder_sent = True
+        await servizio.asave(update_fields=["end_reminder_sent"])
+        logger.info(f"Marked servizio {servizio.pkid} end_reminder_sent")
+
+
 async def handle_poll_answer(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -1341,6 +1394,7 @@ def create_application() -> Application:
     job_queue.run_repeating(send_servizio_reminders, interval=60, first=10)
     job_queue.run_repeating(close_expired_polls, interval=300, first=15)
     job_queue.run_repeating(send_scheduled_task_reminders, interval=60, first=20)
+    job_queue.run_repeating(send_clock_out_reminders, interval=60, first=30)
 
     # Conversation handler for /start and association flow
     start_conv_handler = ConversationHandler(

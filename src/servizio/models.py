@@ -76,6 +76,7 @@ class Servizio(models.Model):
     send_message = models.BooleanField(default=True)
     poll_closed = models.BooleanField(default=False)
     notification_sent = models.BooleanField(default=False)
+    end_reminder_sent = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Servizio"
