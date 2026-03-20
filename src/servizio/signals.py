@@ -33,7 +33,7 @@ async def _send_poll(servizio_nome, servizio_data_ora):
             chat_id=chat_id,
             message_thread_id=thread_id,
             question=f"📢 {servizio_nome} - {servizio_data_ora:%d/%m/%Y %H:%M}\nSei disponibile?",
-            options=["✅ Sì", "❌ No", "🤔 Forse"],
+            options=["✅ Sì", "❌ No"],
             is_anonymous=False,
             allows_multiple_answers=False,
         )
