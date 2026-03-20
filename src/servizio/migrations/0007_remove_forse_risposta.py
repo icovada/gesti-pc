@@ -1,6 +1,9 @@
-# Generated migration to remove 'forse' choice from VolontarioServizioMap.risposta
+from django.db import migrations
 
-from django.db import migrations, models
+
+def convert_forse_to_no(apps, schema_editor):
+    VolontarioServizioMap = apps.get_model('servizio', 'VolontarioServizioMap')
+    VolontarioServizioMap.objects.filter(risposta='forse').update(risposta='no')
 
 
 class Migration(migrations.Migration):
@@ -10,14 +13,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='volontarioserviziomap',
-            name='risposta',
-            field=models.CharField(
-                blank=True,
-                choices=[('si', 'Sì'), ('no', 'No')],
-                max_length=10,
-                null=True,
-            ),
-        ),
+        migrations.RunPython(convert_forse_to_no, migrations.RunPython.noop),
     ]
