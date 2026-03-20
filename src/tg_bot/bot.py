@@ -986,6 +986,54 @@ async def send_clock_out_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.info(f"Marked servizio {servizio.pkid} end_reminder_sent")
 
 
+async def agenda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show accepted events (Servizio and ScheduledTask) in the next 14 days."""
+    volontario = await get_linked_volontario(update)
+    if not volontario:
+        return
+
+    now = timezone.now()
+    cutoff = now + timedelta(days=14)
+
+    servizi_maps = (
+        VolontarioServizioMap.objects.filter(
+            fkvolontario=volontario,
+            risposta=VolontarioServizioMap.Risposta.SI,
+            fkservizio__data_ora__gte=now,
+            fkservizio__data_ora__lte=cutoff,
+        )
+        .select_related("fkservizio")
+        .order_by("fkservizio__data_ora")
+    )
+
+    scheduled_tasks = (
+        ScheduledTask.objects.filter(
+            volontari=volontario,
+            completed=False,
+            deadline__gte=now,
+            deadline__lte=cutoff,
+        )
+        .order_by("deadline")
+    )
+
+    lines = []
+    async for vsm in servizi_maps:
+        s = vsm.fkservizio
+        dt = timezone.localtime(s.data_ora).strftime("%d/%m %H:%M")
+        lines.append(f"🔵 <b>{s.nome}</b> — {dt}")
+
+    async for task in scheduled_tasks:
+        dt = timezone.localtime(task.deadline).strftime("%d/%m %H:%M")
+        lines.append(f"📋 <b>{task.nome}</b> — entro {dt}")
+
+    if not lines:
+        await update.message.reply_text("Nessun evento confermato nei prossimi 14 giorni.")
+        return
+
+    text = "📅 <b>I tuoi prossimi impegni (14 giorni):</b>\n\n" + "\n".join(lines)
+    await update.message.reply_text(text, parse_mode="HTML")
+
+
 async def enforce_locked_topic(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -1429,6 +1477,7 @@ async def post_init(application: Application) -> None:
         BotCommand("uscita", "Registra uscita"),
         BotCommand("ore", "Riepilogo ore del mese"),
         BotCommand("nuovoservizio", "Crea un nuovo servizio"),
+        BotCommand("agenda", "I tuoi prossimi impegni (14 giorni)"),
         BotCommand("login", "Ottieni link di accesso al sito"),
     ]
     await application.bot.set_my_commands(commands)
@@ -1510,6 +1559,7 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("entrata", clock_in))
     application.add_handler(CommandHandler("uscita", clock_out))
     application.add_handler(CommandHandler("ore", hours_summary))
+    application.add_handler(CommandHandler("agenda", agenda))
     application.add_handler(CommandHandler("login", login))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
     application.add_handler(
