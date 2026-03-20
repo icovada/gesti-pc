@@ -70,6 +70,7 @@ class Servizio(models.Model):
         ServizioType, on_delete=models.PROTECT, null=True, blank=True
     )
     volontari = models.ManyToManyField(to=Volontario, through=VolontarioServizioMap)
+    data_ora_fine = models.DateTimeField(null=True, blank=True)
     poll_id = models.CharField(max_length=100, null=True, blank=True, unique=True)
     poll_message_id = models.BigIntegerField(null=True, blank=True)
     send_message = models.BooleanField(default=True)
