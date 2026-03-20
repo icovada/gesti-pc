@@ -47,6 +47,7 @@ class ConversationState(Enum):
     WAITING_SERVIZIO_NAME = auto()
     WAITING_SERVIZIO_DATE = auto()
     WAITING_SERVIZIO_TIME = auto()
+    WAITING_SERVIZIO_END_TIME = auto()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | None:
@@ -549,10 +550,9 @@ async def handle_servizio_date(
 async def handle_servizio_time(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
-    """Handle service time input and create the service."""
+    """Handle service start time input."""
     time_text = update.message.text.strip()
 
-    # Parse time
     try:
         service_time = datetime.strptime(time_text, "%H:%M").time()
     except ValueError:
@@ -563,14 +563,62 @@ async def handle_servizio_time(
         )
         return ConversationState.WAITING_SERVIZIO_TIME.value
 
-    nome = context.user_data.get("servizio_nome")
     service_date = context.user_data.get("servizio_date")
+    service_datetime = timezone.make_aware(datetime.combine(service_date, service_time))
+    context.user_data["servizio_datetime"] = service_datetime
+
+    await update.message.reply_text(
+        f"Inizio: {service_datetime:%d/%m/%Y %H:%M}\n\n"
+        "Inserisci l'ora di fine (formato: HH:MM) o /salta per non specificarla:"
+    )
+    return ConversationState.WAITING_SERVIZIO_END_TIME.value
+
+
+async def handle_servizio_end_time(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle service end time input and create the service."""
+    time_text = update.message.text.strip()
+
+    try:
+        end_time = datetime.strptime(time_text, "%H:%M").time()
+    except ValueError:
+        await update.message.reply_text(
+            "❌ Formato ora non valido.\n"
+            "Usa il formato HH:MM (es. 18:00) o /salta per non specificarla.\n\n"
+            "Riprova o usa /annulla per annullare."
+        )
+        return ConversationState.WAITING_SERVIZIO_END_TIME.value
+
+    service_datetime = context.user_data.get("servizio_datetime")
+    # If end time is earlier than start, assume it falls on the next day
+    end_date = service_datetime.date()
+    if end_time <= service_datetime.time():
+        from datetime import timedelta
+        end_date = end_date + timedelta(days=1)
+    end_datetime = timezone.make_aware(datetime.combine(end_date, end_time))
+    context.user_data["servizio_end_datetime"] = end_datetime
+
+    return await _create_servizio(update, context)
+
+
+async def _skip_servizio_end_time(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle /salta command to skip end time."""
+    context.user_data["servizio_end_datetime"] = None
+    return await _create_servizio(update, context)
+
+
+async def _create_servizio(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Create the Servizio and send confirmation."""
+    nome = context.user_data.get("servizio_nome")
+    service_datetime = context.user_data.get("servizio_datetime")
+    end_datetime = context.user_data.get("servizio_end_datetime")
     type_id = context.user_data.get("servizio_type_id")
 
-    # Combine date and time, making it timezone-aware in the configured local timezone
-    service_datetime = timezone.make_aware(datetime.combine(service_date, service_time))
-
-    # Get the selected type
     servizio_type = None
     if type_id:
         try:
@@ -578,26 +626,29 @@ async def handle_servizio_time(
         except ServizioType.DoesNotExist:
             pass
 
-    # Create the service
     await Servizio.objects.acreate(
         nome=nome,
         data_ora=service_datetime,
+        data_ora_fine=end_datetime,
         type=servizio_type,
     )
 
     type_line = f"📂 {servizio_type.nome}\n" if servizio_type else ""
+    end_line = f"🏁 Fine: {end_datetime:%d/%m/%Y %H:%M}\n" if end_datetime else ""
     await update.message.reply_text(
         f"✅ Servizio creato!\n\n"
         f"📌 {nome}\n"
         f"{type_line}"
-        f"📅 {service_datetime:%d/%m/%Y %H:%M}\n\n"
+        f"📅 Inizio: {service_datetime:%d/%m/%Y %H:%M}\n"
+        f"{end_line}\n"
         f"Il sondaggio di disponibilità è stato inviato."
     )
 
-    # Clean up user data
     context.user_data.pop("servizio_nome", None)
     context.user_data.pop("servizio_date", None)
     context.user_data.pop("servizio_type_id", None)
+    context.user_data.pop("servizio_datetime", None)
+    context.user_data.pop("servizio_end_datetime", None)
 
     return ConversationHandler.END
 
@@ -855,14 +906,18 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                     ]
                 ]
             )
+            end_line = ""
+            if servizio.data_ora_fine:
+                end_line = f"🏁 Fine: {timezone.localtime(servizio.data_ora_fine):%d/%m/%Y %H:%M}\n"
             try:
                 await context.bot.send_message(
                     chat_id=tg_user.telegram_id,
                     text=(
                         f"⏰ Promemoria!\n\n"
                         f'Il servizio "{servizio.nome}" inizia tra 30 minuti.\n'
-                        f"📅 {timezone.localtime(servizio.data_ora):%d/%m/%Y %H:%M}\n\n"
-                        f"La tua risposta: {risposta_text}"
+                        f"📅 Inizio: {timezone.localtime(servizio.data_ora):%d/%m/%Y %H:%M}\n"
+                        f"{end_line}"
+                        f"\nLa tua risposta: {risposta_text}"
                     ),
                     reply_markup=keyboard,
                 )
@@ -1324,6 +1379,10 @@ def create_application() -> Application:
             ],
             ConversationState.WAITING_SERVIZIO_TIME.value: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_time),
+            ],
+            ConversationState.WAITING_SERVIZIO_END_TIME.value: [
+                CommandHandler("salta", _skip_servizio_end_time),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_end_time),
             ],
         },
         fallbacks=[
