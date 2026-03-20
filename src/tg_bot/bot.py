@@ -986,6 +986,64 @@ async def send_clock_out_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.info(f"Marked servizio {servizio.pkid} end_reminder_sent")
 
 
+async def enforce_locked_topic(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Delete any message posted in a locked topic by someone other than the bot."""
+    message = update.effective_message
+    if not message:
+        return
+
+    locked_ids = getattr(settings, "TELEGRAM_LOCKED_THREAD_IDS", [])
+    if message.message_thread_id not in locked_ids:
+        return
+
+    # Leave the bot's own messages (polls, notifications) untouched
+    if message.from_user and message.from_user.id == context.bot.id:
+        return
+
+    try:
+        await message.delete()
+        logger.info(
+            f"Deleted message {message.message_id} in locked topic {message.message_thread_id} "
+            f"from user {message.from_user and message.from_user.id}"
+        )
+    except Exception as e:
+        logger.warning(f"Could not delete message {message.message_id}: {e}")
+        return
+
+    if message.from_user:
+        try:
+            await context.bot.send_message(
+                chat_id=message.from_user.id,
+                text="🚫 Il tuo messaggio è stato eliminato perché questo topic è riservato e non accetta messaggi.",
+            )
+        except Exception as e:
+            logger.warning(f"Could not DM user {message.from_user.id} after message deletion: {e}")
+
+
+async def handle_topic_reopened(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Re-close a forum topic that should stay closed."""
+    message = update.effective_message
+    if not message:
+        return
+
+    locked_ids = getattr(settings, "TELEGRAM_LOCKED_THREAD_IDS", [])
+    if message.message_thread_id not in locked_ids:
+        return
+
+    try:
+        await context.bot.close_forum_topic(
+            chat_id=message.chat_id,
+            message_thread_id=message.message_thread_id,
+        )
+        logger.info(f"Re-closed topic {message.message_thread_id} in chat {message.chat_id}")
+    except Exception as e:
+        logger.warning(f"Could not re-close topic {message.message_thread_id}: {e}")
+
+
 async def handle_poll_answer(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -1471,6 +1529,17 @@ def create_application() -> Application:
     )
     application.add_handler(
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_member)
+    )
+
+    # Locked topic enforcement (group=-1 so it runs before all other handlers)
+    application.add_handler(
+        MessageHandler(filters.ALL, enforce_locked_topic), group=-1
+    )
+    application.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.FORUM_TOPIC_REOPENED, handle_topic_reopened
+        ),
+        group=-1,
     )
 
     return application
