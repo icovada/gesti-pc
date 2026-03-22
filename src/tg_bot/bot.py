@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from enum import Enum, auto
+from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 from telegram import (
@@ -47,6 +48,7 @@ class ConversationState(Enum):
     WAITING_SERVIZIO_NAME = auto()
     WAITING_SERVIZIO_DATE = auto()
     WAITING_SERVIZIO_TIME = auto()
+    WAITING_SERVIZIO_END_TIME = auto()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | None:
@@ -549,10 +551,9 @@ async def handle_servizio_date(
 async def handle_servizio_time(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
-    """Handle service time input and create the service."""
+    """Handle service start time input."""
     time_text = update.message.text.strip()
 
-    # Parse time
     try:
         service_time = datetime.strptime(time_text, "%H:%M").time()
     except ValueError:
@@ -563,14 +564,62 @@ async def handle_servizio_time(
         )
         return ConversationState.WAITING_SERVIZIO_TIME.value
 
-    nome = context.user_data.get("servizio_nome")
     service_date = context.user_data.get("servizio_date")
+    service_datetime = timezone.make_aware(datetime.combine(service_date, service_time))
+    context.user_data["servizio_datetime"] = service_datetime
+
+    await update.message.reply_text(
+        f"Inizio: {service_datetime:%d/%m/%Y %H:%M}\n\n"
+        "Inserisci l'ora di fine (formato: HH:MM) o /salta per non specificarla:"
+    )
+    return ConversationState.WAITING_SERVIZIO_END_TIME.value
+
+
+async def handle_servizio_end_time(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle service end time input and create the service."""
+    time_text = update.message.text.strip()
+
+    try:
+        end_time = datetime.strptime(time_text, "%H:%M").time()
+    except ValueError:
+        await update.message.reply_text(
+            "❌ Formato ora non valido.\n"
+            "Usa il formato HH:MM (es. 18:00) o /salta per non specificarla.\n\n"
+            "Riprova o usa /annulla per annullare."
+        )
+        return ConversationState.WAITING_SERVIZIO_END_TIME.value
+
+    service_datetime = context.user_data.get("servizio_datetime")
+    # If end time is earlier than start, assume it falls on the next day
+    end_date = service_datetime.date()
+    if end_time <= service_datetime.time():
+        from datetime import timedelta
+        end_date = end_date + timedelta(days=1)
+    end_datetime = timezone.make_aware(datetime.combine(end_date, end_time))
+    context.user_data["servizio_end_datetime"] = end_datetime
+
+    return await _create_servizio(update, context)
+
+
+async def _skip_servizio_end_time(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle /salta command to skip end time."""
+    context.user_data["servizio_end_datetime"] = None
+    return await _create_servizio(update, context)
+
+
+async def _create_servizio(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Create the Servizio and send confirmation."""
+    nome = context.user_data.get("servizio_nome")
+    service_datetime = context.user_data.get("servizio_datetime")
+    end_datetime = context.user_data.get("servizio_end_datetime")
     type_id = context.user_data.get("servizio_type_id")
 
-    # Combine date and time, making it timezone-aware in the configured local timezone
-    service_datetime = timezone.make_aware(datetime.combine(service_date, service_time))
-
-    # Get the selected type
     servizio_type = None
     if type_id:
         try:
@@ -578,26 +627,29 @@ async def handle_servizio_time(
         except ServizioType.DoesNotExist:
             pass
 
-    # Create the service
     await Servizio.objects.acreate(
         nome=nome,
         data_ora=service_datetime,
+        data_ora_fine=end_datetime,
         type=servizio_type,
     )
 
     type_line = f"📂 {servizio_type.nome}\n" if servizio_type else ""
+    end_line = f"🏁 Fine: {end_datetime:%d/%m/%Y %H:%M}\n" if end_datetime else ""
     await update.message.reply_text(
         f"✅ Servizio creato!\n\n"
         f"📌 {nome}\n"
         f"{type_line}"
-        f"📅 {service_datetime:%d/%m/%Y %H:%M}\n\n"
+        f"📅 Inizio: {service_datetime:%d/%m/%Y %H:%M}\n"
+        f"{end_line}\n"
         f"Il sondaggio di disponibilità è stato inviato."
     )
 
-    # Clean up user data
     context.user_data.pop("servizio_nome", None)
     context.user_data.pop("servizio_date", None)
     context.user_data.pop("servizio_type_id", None)
+    context.user_data.pop("servizio_datetime", None)
+    context.user_data.pop("servizio_end_datetime", None)
 
     return ConversationHandler.END
 
@@ -855,14 +907,18 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                     ]
                 ]
             )
+            end_line = ""
+            if servizio.data_ora_fine:
+                end_line = f"🏁 Fine: {timezone.localtime(servizio.data_ora_fine):%d/%m/%Y %H:%M}\n"
             try:
                 await context.bot.send_message(
                     chat_id=tg_user.telegram_id,
                     text=(
                         f"⏰ Promemoria!\n\n"
                         f'Il servizio "{servizio.nome}" inizia tra 30 minuti.\n'
-                        f"📅 {timezone.localtime(servizio.data_ora):%d/%m/%Y %H:%M}\n\n"
-                        f"La tua risposta: {risposta_text}"
+                        f"📅 Inizio: {timezone.localtime(servizio.data_ora):%d/%m/%Y %H:%M}\n"
+                        f"{end_line}"
+                        f"\nLa tua risposta: {risposta_text}"
                     ),
                     reply_markup=keyboard,
                 )
@@ -876,6 +932,208 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
         servizio.notification_sent = True
         await servizio.asave(update_fields=["notification_sent"])
         logger.info(f"Marked servizio {servizio.pkid} as notified")
+
+
+async def send_clock_out_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send clock-out reminders to volunteers still clocked in when a servizio ends."""
+    now = timezone.now()
+    window_start = now - timedelta(seconds=65)
+
+    # Find servizi whose end time just passed and haven't had the reminder sent yet
+    ended_servizi = Servizio.objects.filter(
+        data_ora_fine__isnull=False,
+        data_ora_fine__gte=window_start,
+        data_ora_fine__lte=now,
+        end_reminder_sent=False,
+    )
+
+    async for servizio in ended_servizi:
+        # Find volunteers still clocked in for this servizio
+        open_entries = Timbratura.objects.filter(
+            fkservizio=servizio,
+            clock_out__isnull=True,
+        ).select_related("fkvolontario")
+
+        async for entry in open_entries:
+            volontario = entry.fkvolontario
+            try:
+                tg_user = await TelegramUser.objects.aget(volontario=volontario)
+            except TelegramUser.DoesNotExist:
+                logger.debug(f"No telegram user for volontario {volontario.pkid}")
+                continue
+
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("🔴 Registra uscita", callback_data="clock_out")]]
+            )
+            try:
+                await context.bot.send_message(
+                    chat_id=tg_user.telegram_id,
+                    text=(
+                        f"⏰ Il servizio \"{servizio.nome}\" è terminato.\n\n"
+                        f"Ricordati di registrare l'uscita!"
+                    ),
+                    reply_markup=keyboard,
+                )
+                logger.info(
+                    f"Sent clock-out reminder to {volontario.nome} for servizio {servizio.nome}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to send clock-out reminder to {tg_user.telegram_id}: {e}"
+                )
+
+        servizio.end_reminder_sent = True
+        await servizio.asave(update_fields=["end_reminder_sent"])
+        logger.info(f"Marked servizio {servizio.pkid} end_reminder_sent")
+
+
+async def send_weekly_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a weekly summary of all upcoming servizi and tasks to the main group topic."""
+    chat_id = settings.TELEGRAM_SURVEY_CHAT_ID
+    if not chat_id:
+        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping weekly reminder")
+        return
+
+    now = timezone.now()
+    cutoff = now + timedelta(days=7)
+
+    servizi = Servizio.objects.filter(
+        data_ora__gte=now,
+        data_ora__lte=cutoff,
+    ).order_by("data_ora")
+
+    scheduled_tasks = ScheduledTask.objects.filter(
+        completed=False,
+        deadline__gte=now,
+        deadline__lte=cutoff,
+    ).order_by("deadline")
+
+    lines = []
+    async for s in servizi:
+        dt = timezone.localtime(s.data_ora).strftime("%d/%m %H:%M")
+        lines.append(f"🔵 <b>{s.nome}</b> — {dt}")
+
+    async for task in scheduled_tasks:
+        dt = timezone.localtime(task.deadline).strftime("%d/%m %H:%M")
+        lines.append(f"📋 <b>{task.nome}</b> — entro {dt}")
+
+    if not lines:
+        text = "📅 <b>Riepilogo settimanale</b>\n\nNessun servizio o attività programmata per questa settimana."
+    else:
+        text = "📅 <b>Riepilogo settimanale — prossimi 7 giorni:</b>\n\n" + "\n".join(lines)
+
+    kwargs: dict = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    thread_id = getattr(settings, "TELEGRAM_SURVEY_THREAD_ID", None)
+    if thread_id:
+        kwargs["message_thread_id"] = thread_id
+
+    await context.bot.send_message(**kwargs)
+
+
+async def agenda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show accepted events (Servizio and ScheduledTask) in the next 14 days."""
+    volontario = await get_linked_volontario(update)
+    if not volontario:
+        return
+
+    now = timezone.now()
+    cutoff = now + timedelta(days=14)
+
+    servizi_maps = (
+        VolontarioServizioMap.objects.filter(
+            fkvolontario=volontario,
+            risposta=VolontarioServizioMap.Risposta.SI,
+            fkservizio__data_ora__gte=now,
+            fkservizio__data_ora__lte=cutoff,
+        )
+        .select_related("fkservizio")
+        .order_by("fkservizio__data_ora")
+    )
+
+    scheduled_tasks = (
+        ScheduledTask.objects.filter(
+            volontari=volontario,
+            completed=False,
+            deadline__gte=now,
+            deadline__lte=cutoff,
+        )
+        .order_by("deadline")
+    )
+
+    lines = []
+    async for vsm in servizi_maps:
+        s = vsm.fkservizio
+        dt = timezone.localtime(s.data_ora).strftime("%d/%m %H:%M")
+        lines.append(f"🔵 <b>{s.nome}</b> — {dt}")
+
+    async for task in scheduled_tasks:
+        dt = timezone.localtime(task.deadline).strftime("%d/%m %H:%M")
+        lines.append(f"📋 <b>{task.nome}</b> — entro {dt}")
+
+    if not lines:
+        await update.message.reply_text("Nessun evento confermato nei prossimi 14 giorni.")
+        return
+
+    text = "📅 <b>I tuoi prossimi impegni (14 giorni):</b>\n\n" + "\n".join(lines)
+    await update.message.reply_text(text, parse_mode="HTML")
+
+
+async def enforce_locked_topic(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Delete any message posted in a locked topic by someone other than the bot."""
+    message = update.effective_message
+    if not message:
+        return
+
+    locked_ids = getattr(settings, "TELEGRAM_LOCKED_THREAD_IDS", [])
+    if message.message_thread_id not in locked_ids:
+        return
+
+    # Leave the bot's own messages (polls, notifications) untouched
+    if message.from_user and message.from_user.id == context.bot.id:
+        return
+
+    try:
+        await message.delete()
+        logger.info(
+            f"Deleted message {message.message_id} in locked topic {message.message_thread_id} "
+            f"from user {message.from_user and message.from_user.id}"
+        )
+    except Exception as e:
+        logger.warning(f"Could not delete message {message.message_id}: {e}")
+        return
+
+    if message.from_user:
+        try:
+            await context.bot.send_message(
+                chat_id=message.from_user.id,
+                text="🚫 Il tuo messaggio è stato eliminato perché questo topic è riservato e non accetta messaggi.",
+            )
+        except Exception as e:
+            logger.warning(f"Could not DM user {message.from_user.id} after message deletion: {e}")
+
+
+async def handle_topic_reopened(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Re-close a forum topic that should stay closed."""
+    message = update.effective_message
+    if not message:
+        return
+
+    locked_ids = getattr(settings, "TELEGRAM_LOCKED_THREAD_IDS", [])
+    if message.message_thread_id not in locked_ids:
+        return
+
+    try:
+        await context.bot.close_forum_topic(
+            chat_id=message.chat_id,
+            message_thread_id=message.message_thread_id,
+        )
+        logger.info(f"Re-closed topic {message.message_thread_id} in chat {message.chat_id}")
+    except Exception as e:
+        logger.warning(f"Could not re-close topic {message.message_thread_id}: {e}")
 
 
 async def handle_poll_answer(
@@ -1263,6 +1521,7 @@ async def post_init(application: Application) -> None:
         BotCommand("uscita", "Registra uscita"),
         BotCommand("ore", "Riepilogo ore del mese"),
         BotCommand("nuovoservizio", "Crea un nuovo servizio"),
+        BotCommand("agenda", "I tuoi prossimi impegni (14 giorni)"),
         BotCommand("login", "Ottieni link di accesso al sito"),
     ]
     await application.bot.set_my_commands(commands)
@@ -1286,6 +1545,12 @@ def create_application() -> Application:
     job_queue.run_repeating(send_servizio_reminders, interval=60, first=10)
     job_queue.run_repeating(close_expired_polls, interval=300, first=15)
     job_queue.run_repeating(send_scheduled_task_reminders, interval=60, first=20)
+    job_queue.run_repeating(send_clock_out_reminders, interval=60, first=30)
+    job_queue.run_daily(
+        send_weekly_reminder,
+        time=time(9, 0, 0, tzinfo=ZoneInfo("Europe/Rome")),
+        days=(0,),  # 0 = Monday
+    )
 
     # Conversation handler for /start and association flow
     start_conv_handler = ConversationHandler(
@@ -1325,6 +1590,10 @@ def create_application() -> Application:
             ConversationState.WAITING_SERVIZIO_TIME.value: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_time),
             ],
+            ConversationState.WAITING_SERVIZIO_END_TIME.value: [
+                CommandHandler("salta", _skip_servizio_end_time),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_end_time),
+            ],
         },
         fallbacks=[
             CommandHandler("annulla", cancel),
@@ -1339,6 +1608,7 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("entrata", clock_in))
     application.add_handler(CommandHandler("uscita", clock_out))
     application.add_handler(CommandHandler("ore", hours_summary))
+    application.add_handler(CommandHandler("agenda", agenda))
     application.add_handler(CommandHandler("login", login))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
     application.add_handler(
@@ -1358,6 +1628,17 @@ def create_application() -> Application:
     )
     application.add_handler(
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_member)
+    )
+
+    # Locked topic enforcement (group=-1 so it runs before all other handlers)
+    application.add_handler(
+        MessageHandler(filters.ALL, enforce_locked_topic), group=-1
+    )
+    application.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.FORUM_TOPIC_REOPENED, handle_topic_reopened
+        ),
+        group=-1,
     )
 
     return application
