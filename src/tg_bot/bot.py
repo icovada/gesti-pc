@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, time as dt_time, timedelta
 from enum import Enum, auto
 
 from django.utils import timezone
@@ -1484,6 +1484,71 @@ async def post_init(application: Application) -> None:
     logger.info("Bot commands registered")
 
 
+async def send_weekly_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a summary of all tasks scheduled for the current week to the main topic."""
+    chat_id = settings.TELEGRAM_SURVEY_CHAT_ID
+    thread_id = settings.TELEGRAM_SURVEY_THREAD_ID
+
+    if not chat_id:
+        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping weekly summary")
+        return
+
+    now = timezone.now()
+    week_start = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    week_end = week_start + timedelta(days=7)
+
+    servizi = Servizio.objects.filter(
+        data_ora__gte=week_start,
+        data_ora__lt=week_end,
+    ).order_by("data_ora")
+
+    tasks = ScheduledTask.objects.filter(
+        deadline__gte=week_start,
+        deadline__lt=week_end,
+        completed=False,
+    ).order_by("deadline")
+
+    week_end_display = week_end - timedelta(days=1)
+    lines = [
+        f"📅 *Riepilogo settimana {week_start:%d/%m} — {week_end_display:%d/%m/%Y}*\n"
+    ]
+
+    servizi_list = [s async for s in servizi]
+    if servizi_list:
+        lines.append("🚒 *Servizi:*")
+        for s in servizi_list:
+            date_str = timezone.localtime(s.data_ora).strftime("%a %d/%m %H:%M")
+            lines.append(f"• {date_str} — {s.nome}")
+    else:
+        lines.append("🚒 *Servizi:* nessuno")
+
+    lines.append("")
+
+    tasks_list = [t async for t in tasks]
+    if tasks_list:
+        lines.append("📋 *Attività programmate:*")
+        for t in tasks_list:
+            date_str = timezone.localtime(t.deadline).strftime("%a %d/%m %H:%M")
+            lines.append(f"• {date_str} — {t.nome}")
+    else:
+        lines.append("📋 *Attività programmate:* nessuna")
+
+    text = "\n".join(lines)
+
+    try:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            message_thread_id=thread_id,
+            text=text,
+            parse_mode="Markdown",
+        )
+        logger.info("Weekly summary sent successfully")
+    except Exception as e:
+        logger.error(f"Failed to send weekly summary: {e}")
+
+
 def create_application() -> Application:
     """Create and configure the bot application."""
     if not settings.TELEGRAM_BOT_TOKEN:
@@ -1502,6 +1567,7 @@ def create_application() -> Application:
     job_queue.run_repeating(close_expired_polls, interval=300, first=15)
     job_queue.run_repeating(send_scheduled_task_reminders, interval=60, first=20)
     job_queue.run_repeating(send_clock_out_reminders, interval=60, first=30)
+    job_queue.run_daily(send_weekly_summary, time=dt_time(9, 0, 0), days=(0,))
 
     # Conversation handler for /start and association flow
     start_conv_handler = ConversationHandler(
