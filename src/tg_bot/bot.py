@@ -1487,7 +1487,6 @@ async def post_init(application: Application) -> None:
 async def send_weekly_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a summary of all tasks scheduled for the current week to the main topic."""
     chat_id = settings.TELEGRAM_SURVEY_CHAT_ID
-    thread_id = settings.TELEGRAM_SURVEY_THREAD_ID
 
     if not chat_id:
         logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping weekly summary")
@@ -1540,7 +1539,6 @@ async def send_weekly_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         await context.bot.send_message(
             chat_id=chat_id,
-            message_thread_id=thread_id,
             text=text,
             parse_mode="Markdown",
         )
