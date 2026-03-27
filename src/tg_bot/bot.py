@@ -1033,6 +1033,69 @@ async def send_clock_out_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.info(f"Marked servizio {servizio.pkid} end_reminder_sent")
 
 
+async def send_equipment_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send equipment reminders to accepted volunteers the day before at 8 PM."""
+    now = timezone.now()
+    # Find servizi happening tomorrow (between tomorrow midnight and day end)
+    tomorrow_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_end = tomorrow_start + timedelta(days=1)
+
+    tomorrow_servizi = Servizio.objects.filter(
+        data_ora__gte=tomorrow_start,
+        data_ora__lt=tomorrow_end,
+        type__isnull=False,  # Only servizi with a type have equipment requirements
+    ).select_related("type")
+
+    async for servizio in tomorrow_servizi:
+        # Get required equipment for this servizio type
+        from magazzino.models import RequisitoServizioType
+
+        requisiti = RequisitoServizioType.objects.filter(
+            servizio_type=servizio.type
+        ).select_related("tipo_dotazione")
+        requisiti_list = [req async for req in requisiti]
+
+        # Get all volunteers who said YES to this servizio
+        accepted = VolontarioServizioMap.objects.filter(
+            fkservizio=servizio,
+            risposta=VolontarioServizioMap.Risposta.SI,
+        ).select_related("fkvolontario")
+
+        async for answer in accepted:
+            volontario = answer.fkvolontario
+            try:
+                tg_user = await TelegramUser.objects.aget(volontario=volontario)
+            except TelegramUser.DoesNotExist:
+                logger.debug(f"No telegram user for volontario {volontario.nome}")
+                continue
+
+            # Build message with or without equipment list
+            message = (
+                f"Promemoria!\n\n"
+                f'Domani hai il servizio "{servizio.nome}":\n'
+                f"📅 {timezone.localtime(servizio.data_ora):%d/%m/%Y %H:%M}\n"
+            )
+
+            if requisiti_list:
+                equipment_lines = ["\nRicorda di portare:"]
+                for req in requisiti_list:
+                    equipment_lines.append(f"  • {req.tipo_dotazione.nome}")
+                message += "\n".join(equipment_lines)
+
+            try:
+                await context.bot.send_message(
+                    chat_id=tg_user.telegram_id,
+                    text=message,
+                )
+                logger.info(
+                    f"Sent equipment reminder to {volontario.nome} for servizio {servizio.nome}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to send equipment reminder to {tg_user.telegram_id}: {e}"
+                )
+
+
 async def agenda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show accepted events (Servizio and ScheduledTask) in the next 14 days."""
     volontario = await get_linked_volontario(update)
@@ -1627,6 +1690,7 @@ def create_application() -> Application:
     job_queue.run_repeating(close_expired_polls, interval=300, first=15)
     job_queue.run_repeating(send_scheduled_task_reminders, interval=60, first=20)
     job_queue.run_repeating(send_clock_out_reminders, interval=60, first=30)
+    job_queue.run_daily(send_equipment_reminders, time=dt_time(20, 0, 0))
     job_queue.run_daily(send_weekly_summary, time=dt_time(9, 0, 0), days=(0,))
 
     # Conversation handler for /start and association flow
