@@ -1050,6 +1050,17 @@ async def enforce_locked_topic(
     if message.from_user and message.from_user.id == context.bot.id:
         return
 
+    if message.from_user:
+        # First, forward the message to the user so they don't lose the content
+        try:
+            await context.bot.forward_message(
+                chat_id=message.from_user.id,
+                from_chat_id=message.chat_id,
+                message_id=message.message_id,
+            )
+        except Exception as e:
+            logger.warning(f"Could not forward message {message.message_id} to user {message.from_user.id}: {e}")
+
     try:
         await message.delete()
         logger.info(
@@ -1064,7 +1075,7 @@ async def enforce_locked_topic(
         try:
             await context.bot.send_message(
                 chat_id=message.from_user.id,
-                text="🚫 Il tuo messaggio è stato eliminato perché questo topic è riservato e non accetta messaggi.",
+                text="🚫 Questo topic è riservato e non accetta messaggi. Il tuo messaggio è stato eliminato.",
             )
         except Exception as e:
             logger.warning(f"Could not DM user {message.from_user.id} after message deletion: {e}")
@@ -1075,7 +1086,6 @@ async def handle_topic_reopened(
 ) -> None:
     """Re-close a forum topic that should stay closed."""
     message = update.effective_message
-    logger.debug(f"Topic reopened handler called. Message: {message}, thread_id: {message.message_thread_id if message else None}")
     if not message or not message.message_thread_id:
         return
 
@@ -1091,8 +1101,6 @@ async def handle_topic_reopened(
         logger.info(f"Re-closed topic {message.message_thread_id} in chat {message.chat_id}")
     except Exception as e:
         logger.warning(f"Could not re-close topic {message.message_thread_id}: {e}")
-        # Log the full update for debugging
-        logger.debug(f"Update object: {update.to_dict()}")
 
 
 async def handle_poll_answer(
