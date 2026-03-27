@@ -1075,7 +1075,8 @@ async def handle_topic_reopened(
 ) -> None:
     """Re-close a forum topic that should stay closed."""
     message = update.effective_message
-    if not message:
+    logger.debug(f"Topic reopened handler called. Message: {message}, thread_id: {message.message_thread_id if message else None}")
+    if not message or not message.message_thread_id:
         return
 
     locked_ids = getattr(settings, "TELEGRAM_LOCKED_THREAD_IDS", [])
@@ -1090,6 +1091,8 @@ async def handle_topic_reopened(
         logger.info(f"Re-closed topic {message.message_thread_id} in chat {message.chat_id}")
     except Exception as e:
         logger.warning(f"Could not re-close topic {message.message_thread_id}: {e}")
+        # Log the full update for debugging
+        logger.debug(f"Update object: {update.to_dict()}")
 
 
 async def handle_poll_answer(
@@ -1649,6 +1652,16 @@ def create_application() -> Application:
     application.add_handler(
         MessageHandler(filters.ALL, enforce_locked_topic), group=-1
     )
+
+    # Debug handler to log all updates (before specific handlers)
+    async def log_all_updates(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+        if update.message and update.message.forum_topic_reopened:
+            logger.debug(f"Forum topic reopened: thread_id={update.message.message_thread_id}, chat_id={update.message.chat_id}")
+
+    application.add_handler(
+        MessageHandler(filters.ALL, log_all_updates), group=-2
+    )
+
     application.add_handler(
         MessageHandler(
             filters.StatusUpdate.FORUM_TOPIC_REOPENED, handle_topic_reopened
