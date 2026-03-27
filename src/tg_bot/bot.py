@@ -1037,15 +1037,15 @@ async def agenda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def enforce_locked_topic(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """Delete any message posted in a locked topic by someone other than the bot."""
+    """Delete any message posted in a no-message topic by someone other than the bot."""
     message = update.effective_message
     if not message:
         return
 
-    locked_ids = getattr(settings, "TELEGRAM_LOCKED_THREAD_IDS", [])
+    no_msg_ids = getattr(settings, "TELEGRAM_NO_MESSAGE_THREAD_IDS", [])
     # Root topic (topic 1) has message_thread_id = None
     topic_id = message.message_thread_id or 1
-    if topic_id not in locked_ids:
+    if topic_id not in no_msg_ids:
         return
 
     # Leave the bot's own messages (polls, notifications) untouched

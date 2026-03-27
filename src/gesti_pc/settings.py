@@ -143,10 +143,16 @@ _thread_id = os.getenv("TELEGRAM_SURVEY_THREAD_ID")
 TELEGRAM_SURVEY_THREAD_ID = int(_thread_id) if _thread_id else None
 
 # Comma-separated list of forum topic IDs that must stay closed.
-# The bot will delete any non-bot message posted there and re-close the topic
-# if someone reopens it. Example: TELEGRAM_LOCKED_THREAD_IDS=123,456
+# The bot will re-close the topic if someone reopens it.
+# Example: TELEGRAM_LOCKED_THREAD_IDS=1,5
 _locked_ids = os.getenv("TELEGRAM_LOCKED_THREAD_IDS", "")
 TELEGRAM_LOCKED_THREAD_IDS = [int(x) for x in _locked_ids.split(",") if x.strip()]
+
+# Comma-separated list of forum topic IDs where non-bot messages are deleted.
+# The bot will delete any non-bot message posted there and notify the user.
+# Example: TELEGRAM_NO_MESSAGE_THREAD_IDS=10,20
+_no_msg_ids = os.getenv("TELEGRAM_NO_MESSAGE_THREAD_IDS", "")
+TELEGRAM_NO_MESSAGE_THREAD_IDS = [int(x) for x in _no_msg_ids.split(",") if x.strip()]
 
 STATIC_ROOT = os.getenv("STATIC_ROOT")
 MEDIA_ROOT = os.getenv("MEDIA_ROOT")
