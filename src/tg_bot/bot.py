@@ -1648,25 +1648,17 @@ def create_application() -> Application:
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_member)
     )
 
-    # Locked topic enforcement (group=-1 so it runs before all other handlers)
-    application.add_handler(
-        MessageHandler(filters.ALL, enforce_locked_topic), group=-1
-    )
-
-    # Debug handler to log all updates (before specific handlers)
-    async def log_all_updates(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.message and update.message.forum_topic_reopened:
-            logger.debug(f"Forum topic reopened: thread_id={update.message.message_thread_id}, chat_id={update.message.chat_id}")
-
-    application.add_handler(
-        MessageHandler(filters.ALL, log_all_updates), group=-2
-    )
-
+    # Handle topic reopened first (group=-2 so it runs before locked topic enforcement)
     application.add_handler(
         MessageHandler(
             filters.StatusUpdate.FORUM_TOPIC_REOPENED, handle_topic_reopened
         ),
-        group=-1,
+        group=-2,
+    )
+
+    # Locked topic enforcement (group=-1 so it runs before all other handlers)
+    application.add_handler(
+        MessageHandler(filters.ALL, enforce_locked_topic), group=-1
     )
 
     return application
