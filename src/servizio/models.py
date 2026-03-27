@@ -73,6 +73,7 @@ class Servizio(models.Model):
     data_ora_fine = models.DateTimeField(null=True, blank=True)
     poll_id = models.CharField(max_length=100, null=True, blank=True, unique=True)
     poll_message_id = models.BigIntegerField(null=True, blank=True)
+    poll_close_date = models.DateTimeField(null=True, blank=True, help_text="When to close the poll (optional)")
     send_message = models.BooleanField(default=True)
     poll_closed = models.BooleanField(default=False)
     notification_sent = models.BooleanField(default=False)

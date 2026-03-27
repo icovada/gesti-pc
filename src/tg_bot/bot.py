@@ -48,6 +48,7 @@ class ConversationState(Enum):
     WAITING_SERVIZIO_DATE = auto()
     WAITING_SERVIZIO_TIME = auto()
     WAITING_SERVIZIO_END_TIME = auto()
+    WAITING_SERVIZIO_POLL_CLOSE_DATE = auto()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | None:
@@ -599,7 +600,11 @@ async def handle_servizio_end_time(
     end_datetime = timezone.make_aware(datetime.combine(end_date, end_time))
     context.user_data["servizio_end_datetime"] = end_datetime
 
-    return await _create_servizio(update, context)
+    await update.message.reply_text(
+        f"Fine: {end_datetime:%d/%m/%Y %H:%M}\n\n"
+        "Inserisci la data di chiusura del sondaggio (formato: GG/MM/AAAA HH:MM) o /salta per usare il default:"
+    )
+    return ConversationState.WAITING_SERVIZIO_POLL_CLOSE_DATE.value
 
 
 async def _skip_servizio_end_time(
@@ -607,6 +612,38 @@ async def _skip_servizio_end_time(
 ) -> int:
     """Handle /salta command to skip end time."""
     context.user_data["servizio_end_datetime"] = None
+    await update.message.reply_text(
+        "Inserisci la data di chiusura del sondaggio (formato: GG/MM/AAAA HH:MM) o /salta per usare il default:"
+    )
+    return ConversationState.WAITING_SERVIZIO_POLL_CLOSE_DATE.value
+
+
+async def handle_servizio_poll_close_date(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle poll close date input and create the service."""
+    date_time_text = update.message.text.strip()
+
+    try:
+        poll_close_datetime = datetime.strptime(date_time_text, "%d/%m/%Y %H:%M")
+        poll_close_datetime = timezone.make_aware(poll_close_datetime)
+        context.user_data["servizio_poll_close_date"] = poll_close_datetime
+    except ValueError:
+        await update.message.reply_text(
+            "❌ Formato data/ora non valido.\n"
+            "Usa il formato GG/MM/AAAA HH:MM (es. 25/01/2026 18:00) o /salta per il default.\n\n"
+            "Riprova o usa /annulla per annullare."
+        )
+        return ConversationState.WAITING_SERVIZIO_POLL_CLOSE_DATE.value
+
+    return await _create_servizio(update, context)
+
+
+async def _skip_servizio_poll_close_date(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """Handle /salta command to skip poll close date."""
+    context.user_data["servizio_poll_close_date"] = None
     return await _create_servizio(update, context)
 
 
@@ -617,6 +654,7 @@ async def _create_servizio(
     nome = context.user_data.get("servizio_nome")
     service_datetime = context.user_data.get("servizio_datetime")
     end_datetime = context.user_data.get("servizio_end_datetime")
+    poll_close_date = context.user_data.get("servizio_poll_close_date")
     type_id = context.user_data.get("servizio_type_id")
 
     servizio_type = None
@@ -630,17 +668,20 @@ async def _create_servizio(
         nome=nome,
         data_ora=service_datetime,
         data_ora_fine=end_datetime,
+        poll_close_date=poll_close_date,
         type=servizio_type,
     )
 
     type_line = f"📂 {servizio_type.nome}\n" if servizio_type else ""
     end_line = f"🏁 Fine: {end_datetime:%d/%m/%Y %H:%M}\n" if end_datetime else ""
+    poll_close_line = f"⏱️ Chiusura sondaggio: {poll_close_date:%d/%m/%Y %H:%M}\n" if poll_close_date else ""
     await update.message.reply_text(
         f"✅ Servizio creato!\n\n"
         f"📌 {nome}\n"
         f"{type_line}"
         f"📅 Inizio: {service_datetime:%d/%m/%Y %H:%M}\n"
-        f"{end_line}\n"
+        f"{end_line}"
+        f"{poll_close_line}\n"
         f"Il sondaggio di disponibilità è stato inviato."
     )
 
@@ -649,6 +690,7 @@ async def _create_servizio(
     context.user_data.pop("servizio_type_id", None)
     context.user_data.pop("servizio_datetime", None)
     context.user_data.pop("servizio_end_datetime", None)
+    context.user_data.pop("servizio_poll_close_date", None)
 
     return ConversationHandler.END
 
@@ -831,15 +873,20 @@ async def handle_clock_out_callback(
 
 
 async def close_expired_polls(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Close polls for servizi starting within 12 hours."""
+    """Close polls that have reached their poll_close_date or are starting within 12 hours."""
+    from django.db.models import Q
+
     now = timezone.now()
     cutoff = now + timedelta(hours=12)
 
-    # Find servizi with open polls that start within 24 hours
+    # Find servizi with open polls that either:
+    # 1. Have a poll_close_date that has passed, or
+    # 2. Start within 12 hours
     servizi_to_close = Servizio.objects.filter(
-        data_ora__lte=cutoff,
         poll_message_id__isnull=False,
         poll_closed=False,
+    ).filter(
+        Q(poll_close_date__lte=now) | Q(data_ora__lte=cutoff)
     )
 
     chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
@@ -1623,6 +1670,10 @@ def create_application() -> Application:
             ConversationState.WAITING_SERVIZIO_END_TIME.value: [
                 CommandHandler("salta", _skip_servizio_end_time),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_end_time),
+            ],
+            ConversationState.WAITING_SERVIZIO_POLL_CLOSE_DATE.value: [
+                CommandHandler("salta", _skip_servizio_poll_close_date),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_poll_close_date),
             ],
         },
         fallbacks=[
