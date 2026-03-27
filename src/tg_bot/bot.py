@@ -1043,7 +1043,9 @@ async def enforce_locked_topic(
         return
 
     locked_ids = getattr(settings, "TELEGRAM_LOCKED_THREAD_IDS", [])
-    if message.message_thread_id not in locked_ids:
+    # Root topic (topic 1) has message_thread_id = None
+    topic_id = message.message_thread_id or 1
+    if topic_id not in locked_ids:
         return
 
     # Leave the bot's own messages (polls, notifications) untouched
@@ -1064,7 +1066,7 @@ async def enforce_locked_topic(
     try:
         await message.delete()
         logger.info(
-            f"Deleted message {message.message_id} in locked topic {message.message_thread_id} "
+            f"Deleted message {message.message_id} in locked topic {topic_id} "
             f"from user {message.from_user and message.from_user.id}"
         )
     except Exception as e:
@@ -1086,21 +1088,23 @@ async def handle_topic_reopened(
 ) -> None:
     """Re-close a forum topic that should stay closed."""
     message = update.effective_message
-    if not message or not message.message_thread_id:
+    if not message:
         return
 
     locked_ids = getattr(settings, "TELEGRAM_LOCKED_THREAD_IDS", [])
-    if message.message_thread_id not in locked_ids:
+    # Root topic (topic 1) has message_thread_id = None
+    topic_id = message.message_thread_id or 1
+    if topic_id not in locked_ids:
         return
 
     try:
         await context.bot.close_forum_topic(
             chat_id=message.chat_id,
-            message_thread_id=message.message_thread_id,
+            message_thread_id=topic_id,
         )
-        logger.info(f"Re-closed topic {message.message_thread_id} in chat {message.chat_id}")
+        logger.info(f"Re-closed topic {topic_id} in chat {message.chat_id}")
     except Exception as e:
-        logger.warning(f"Could not re-close topic {message.message_thread_id}: {e}")
+        logger.warning(f"Could not re-close topic {topic_id}: {e}")
 
 
 async def handle_poll_answer(
