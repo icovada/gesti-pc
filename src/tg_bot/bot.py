@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, time as dt_time, timedelta
 from enum import Enum, auto
+from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 from telegram import (
@@ -1617,8 +1618,8 @@ async def send_weekly_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping weekly summary")
         return
 
-    now = timezone.now()
-    week_start = (now - timedelta(days=now.weekday())).replace(
+    local_now = timezone.localtime(timezone.now())
+    week_start = (local_now - timedelta(days=local_now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
     week_end = week_start + timedelta(days=7)
@@ -1691,7 +1692,11 @@ def create_application() -> Application:
     job_queue.run_repeating(send_scheduled_task_reminders, interval=60, first=20)
     job_queue.run_repeating(send_clock_out_reminders, interval=60, first=30)
     job_queue.run_daily(send_equipment_reminders, time=dt_time(20, 0, 0))
-    job_queue.run_daily(send_weekly_summary, time=dt_time(9, 0, 0), days=(0,))
+    job_queue.run_daily(
+        send_weekly_summary,
+        time=dt_time(9, 0, 0, tzinfo=ZoneInfo("Europe/Rome")),
+        days=(0,),
+    )
 
     # Conversation handler for /start and association flow
     start_conv_handler = ConversationHandler(
