@@ -24,6 +24,7 @@ from telegram.ext import (
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
 from .models import LoginToken, TelegramUser, WebLoginRequest
 from servizio.models import (
@@ -279,17 +280,37 @@ async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # Create new time entry
-    entry = await Timbratura.objects.acreate(fkvolontario=volontario)
+    # Check if there is an active Servizio right now
+    now = timezone.now()
+    active_servizio = await Servizio.objects.filter(
+        data_ora__lte=now,
+    ).filter(
+        Q(data_ora_fine__gte=now) | Q(data_ora_fine__isnull=True)
+    ).order_by("-data_ora").afirst()
+
+    # Create new time entry, linked to the active servizio if any
+    entry = await Timbratura.objects.acreate(
+        fkvolontario=volontario,
+        fkservizio=active_servizio,
+    )
 
     clock_out_keyboard = InlineKeyboardMarkup(
         [[InlineKeyboardButton("🔴 Registra uscita", callback_data="clock_out")]]
     )
-    await update.message.reply_text(
-        f"✅ Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M}.\n\n"
-        f"Buon lavoro!",
-        reply_markup=clock_out_keyboard,
-    )
+    if active_servizio:
+        await update.message.reply_text(
+            f"✅ Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M} "
+            f"per il servizio *{active_servizio.nome}*.\n\n"
+            f"Buon lavoro!",
+            parse_mode="Markdown",
+            reply_markup=clock_out_keyboard,
+        )
+    else:
+        await update.message.reply_text(
+            f"✅ Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M}.\n\n"
+            f"Buon lavoro!",
+            reply_markup=clock_out_keyboard,
+        )
 
 
 async def clock_out(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -875,8 +896,6 @@ async def handle_clock_out_callback(
 
 async def close_expired_polls(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Close polls that have reached their poll_close_date or are starting within 12 hours."""
-    from django.db.models import Q
-
     now = timezone.now()
     cutoff = now + timedelta(hours=12)
 
