@@ -3,7 +3,7 @@ import logging
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models.signals import post_save, pre_delete
+from django.db.models.signals import post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from telegram import Bot
 
@@ -62,13 +62,97 @@ def send_availability_poll(servizio: Servizio) -> None:
         )
 
 
+# Fields that appear in the poll question; a change to any of them means the
+# already-sent poll is now stale and a follow-up update should be posted.
+POLL_CONTENT_FIELDS = ("nome", "data_ora")
+
+
+async def _send_poll_update(text, reply_to_message_id):
+    """Post a text message replying to (quoting) an existing poll message."""
+    chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
+    token = getattr(settings, "TELEGRAM_BOT_TOKEN", None)
+    thread_id = getattr(settings, "TELEGRAM_SURVEY_THREAD_ID", None)
+
+    if not chat_id:
+        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping poll update")
+        return
+
+    if not token:
+        logger.warning("TELEGRAM_BOT_TOKEN not configured, skipping poll update")
+        return
+
+    bot = Bot(token=token)
+    async with bot:
+        await bot.send_message(
+            chat_id=chat_id,
+            message_thread_id=thread_id,
+            text=text,
+            reply_to_message_id=reply_to_message_id,
+        )
+
+
+def notify_poll_update(servizio: Servizio, poll_message_id: int) -> None:
+    """Post a follow-up quoting the poll message with the servizio's updated details.
+
+    Telegram does not allow editing a poll's question, so rather than re-creating the
+    poll (which would discard existing votes) we reply to it announcing the new data.
+    """
+    if not poll_message_id:
+        logger.warning(
+            f"Servizio {servizio.pkid} has no poll_message_id, cannot post update"
+        )
+        return
+
+    text = (
+        "✏️ Attenzione, i dettagli sono cambiati:\n"
+        f"📢 {servizio.nome} - {servizio.data_ora:%d/%m/%Y %H:%M}"
+    )
+
+    try:
+        asyncio.run(_send_poll_update(text, poll_message_id))
+        logger.info(f"Posted update for servizio {servizio.pkid} poll")
+    except Exception as e:
+        logger.error(f"Failed to post update for servizio {servizio.pkid}: {e}")
+
+
+@receiver(pre_save, sender=Servizio)
+def pre_servizio_created(sender, instance, **kwargs) -> None:
+    """Stash the current DB state on the instance so post_save can compare it."""
+    try:
+        instance._pre_save_instance = sender.objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        instance._pre_save_instance = None
+
+
 @receiver(post_save, sender=Servizio)
 def servizio_created(sender, instance, created, **kwargs):
-    """Send availability poll when a new Servizio is created."""
-    if created and not instance.poll_id and instance.send_message:
-        logger.info(f"New servizio created: {instance.nome}, sending poll")
-        # Use on_commit to ensure the transaction is complete before sending
+    """Send the availability poll on creation, or refresh it when the servizio changes."""
+    if created:
+        if not instance.poll_id and instance.send_message:
+            logger.info(f"New servizio created: {instance.nome}, sending poll")
+            # Use on_commit to ensure the transaction is complete before sending
+            transaction.on_commit(lambda: send_availability_poll(instance))
+        return
+
+    previous = getattr(instance, "_pre_save_instance", None)
+    if previous is None:
+        return
+
+    # send_message was just turned on and no poll exists yet: send a fresh poll.
+    if instance.send_message and not previous.send_message and not instance.poll_id:
+        logger.info(f"send_message enabled for servizio {instance.pkid}, sending poll")
         transaction.on_commit(lambda: send_availability_poll(instance))
+        return
+
+    # Poll content changed while an open poll exists: post a follow-up update.
+    content_changed = any(
+        getattr(previous, field) != getattr(instance, field)
+        for field in POLL_CONTENT_FIELDS
+    )
+    if instance.poll_id and not instance.poll_closed and content_changed:
+        logger.info(f"Servizio {instance.pkid} details changed, posting poll update")
+        poll_message_id = instance.poll_message_id
+        transaction.on_commit(lambda: notify_poll_update(instance, poll_message_id))
 
 
 async def _delete_poll_message(chat_id, message_id):
