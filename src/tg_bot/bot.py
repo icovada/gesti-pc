@@ -338,11 +338,14 @@ async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Check if there is an active Servizio right now
     now = timezone.now()
-    active_servizio = await Servizio.objects.filter(
-        data_ora__lte=now,
-    ).filter(
-        Q(data_ora_fine__gte=now) | Q(data_ora_fine__isnull=True)
-    ).order_by("-data_ora").afirst()
+    active_servizio = (
+        await Servizio.objects.filter(
+            data_ora__lte=now,
+        )
+        .filter(Q(data_ora_fine__gte=now) | Q(data_ora_fine__isnull=True))
+        .order_by("-data_ora")
+        .afirst()
+    )
 
     # Create new time entry, linked to the active servizio if any
     entry = await Timbratura.objects.acreate(
@@ -481,7 +484,6 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-
 async def nuovo_servizio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start the new service creation flow."""
     volontario = await get_linked_volontario(update)
@@ -497,9 +499,7 @@ async def nuovo_servizio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         [InlineKeyboardButton(st.nome, callback_data=f"stype:{st.pkid}")]
         for st in types
     ]
-    buttons.append(
-        [InlineKeyboardButton("➕ Nuovo tipo", callback_data="stype:new")]
-    )
+    buttons.append([InlineKeyboardButton("➕ Nuovo tipo", callback_data="stype:new")])
 
     await update.message.reply_text(
         "📋 Creazione nuovo servizio\n\nSeleziona il tipo di servizio:",
@@ -532,7 +532,9 @@ async def handle_servizio_type_callback(
     try:
         servizio_type = await ServizioType.objects.aget(pkid=choice)
     except ServizioType.DoesNotExist:
-        await query.edit_message_text("❌ Tipo non trovato. Riprova con /nuovoservizio.")
+        await query.edit_message_text(
+            "❌ Tipo non trovato. Riprova con /nuovoservizio."
+        )
         return ConversationHandler.END
 
     context.user_data["servizio_type_id"] = str(servizio_type.pkid)
@@ -674,6 +676,7 @@ async def handle_servizio_end_time(
     end_date = service_datetime.date()
     if end_time <= service_datetime.time():
         from datetime import timedelta
+
         end_date = end_date + timedelta(days=1)
     end_datetime = timezone.make_aware(datetime.combine(end_date, end_time))
     context.user_data["servizio_end_datetime"] = end_datetime
@@ -725,9 +728,7 @@ async def _skip_servizio_poll_close_date(
     return await _create_servizio(update, context)
 
 
-async def _create_servizio(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> int:
+async def _create_servizio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Create the Servizio and send confirmation."""
     nome = context.user_data.get("servizio_nome")
     service_datetime = context.user_data.get("servizio_datetime")
@@ -752,7 +753,11 @@ async def _create_servizio(
 
     type_line = f"📂 {servizio_type.nome}\n" if servizio_type else ""
     end_line = f"🏁 Fine: {end_datetime:%d/%m/%Y %H:%M}\n" if end_datetime else ""
-    poll_close_line = f"⏱️ Chiusura sondaggio: {poll_close_date:%d/%m/%Y %H:%M}\n" if poll_close_date else ""
+    poll_close_line = (
+        f"⏱️ Chiusura sondaggio: {poll_close_date:%d/%m/%Y %H:%M}\n"
+        if poll_close_date
+        else ""
+    )
     await update.message.reply_text(
         f"✅ Servizio creato!\n\n"
         f"📌 {nome}\n"
@@ -961,9 +966,7 @@ async def close_expired_polls(context: ContextTypes.DEFAULT_TYPE) -> None:
     servizi_to_close = Servizio.objects.filter(
         poll_message_id__isnull=False,
         poll_closed=False,
-    ).filter(
-        Q(poll_close_date__lte=now) | Q(data_ora__lte=cutoff)
-    )
+    ).filter(Q(poll_close_date__lte=now) | Q(data_ora__lte=cutoff))
 
     chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
     if not chat_id:
@@ -979,9 +982,7 @@ async def close_expired_polls(context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             logger.info(f"Closed poll for servizio {servizio.pkid} ({servizio.nome})")
         except Exception as e:
-            logger.error(
-                f"Failed to close poll for servizio {servizio.pkid}: {e}"
-            )
+            logger.error(f"Failed to close poll for servizio {servizio.pkid}: {e}")
         servizio.poll_closed = True
         await servizio.asave(update_fields=["poll_closed"])
 
@@ -1085,13 +1086,19 @@ async def send_clock_out_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                 continue
 
             keyboard = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🔴 Registra uscita", callback_data="clock_out")]]
+                [
+                    [
+                        InlineKeyboardButton(
+                            "🔴 Registra uscita", callback_data="clock_out"
+                        )
+                    ]
+                ]
             )
             try:
                 await context.bot.send_message(
                     chat_id=tg_user.telegram_id,
                     text=(
-                        f"⏰ Il servizio \"{servizio.nome}\" è terminato.\n\n"
+                        f'⏰ Il servizio "{servizio.nome}" è terminato.\n\n'
                         f"Ricordati di registrare l'uscita!"
                     ),
                     reply_markup=keyboard,
@@ -1113,7 +1120,9 @@ async def send_equipment_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send equipment reminders to accepted volunteers the day before at 8 PM."""
     now = timezone.now()
     # Find servizi happening tomorrow (between tomorrow midnight and day end)
-    tomorrow_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_start = (now + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     tomorrow_end = tomorrow_start + timedelta(days=1)
 
     tomorrow_servizi = Servizio.objects.filter(
@@ -1192,15 +1201,12 @@ async def agenda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         .order_by("fkservizio__data_ora")
     )
 
-    scheduled_tasks = (
-        ScheduledTask.objects.filter(
-            volontari=volontario,
-            completed=False,
-            deadline__gte=now,
-            deadline__lte=cutoff,
-        )
-        .order_by("deadline")
-    )
+    scheduled_tasks = ScheduledTask.objects.filter(
+        volontari=volontario,
+        completed=False,
+        deadline__gte=now,
+        deadline__lte=cutoff,
+    ).order_by("deadline")
 
     lines = []
     async for vsm in servizi_maps:
@@ -1213,7 +1219,9 @@ async def agenda(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         lines.append(f"📋 <b>{task.nome}</b> — entro {dt}")
 
     if not lines:
-        await update.message.reply_text("Nessun evento confermato nei prossimi 14 giorni.")
+        await update.message.reply_text(
+            "Nessun evento confermato nei prossimi 14 giorni."
+        )
         return
 
     text = "📅 <b>I tuoi prossimi impegni (14 giorni):</b>\n\n" + "\n".join(lines)
@@ -1247,7 +1255,9 @@ async def enforce_locked_topic(
                 message_id=message.message_id,
             )
         except Exception as e:
-            logger.warning(f"Could not forward message {message.message_id} to user {message.from_user.id}: {e}")
+            logger.warning(
+                f"Could not forward message {message.message_id} to user {message.from_user.id}: {e}"
+            )
 
     try:
         await message.delete()
@@ -1266,7 +1276,9 @@ async def enforce_locked_topic(
                 text="🚫 Questo topic è riservato e non accetta messaggi. Il tuo messaggio è stato eliminato.",
             )
         except Exception as e:
-            logger.warning(f"Could not DM user {message.from_user.id} after message deletion: {e}")
+            logger.warning(
+                f"Could not DM user {message.from_user.id} after message deletion: {e}"
+            )
 
 
 async def handle_topic_reopened(
@@ -1350,9 +1362,7 @@ async def handle_poll_answer(
     )
 
 
-async def greet_new_member(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def greet_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Greet new members joining the chat and prompt them to enable the bot."""
     for member in update.message.new_chat_members:
         # Skip if the bot itself joined
@@ -1389,25 +1399,35 @@ async def greet_new_member(
         )
 
 
-async def _build_checklist_message(task: ScheduledTask) -> tuple[str, InlineKeyboardMarkup | None]:
+async def _build_checklist_message(
+    task: ScheduledTask,
+) -> tuple[str, InlineKeyboardMarkup | None]:
     """Build checklist message text and keyboard for a ScheduledTask."""
     completed_lines = []
     pending_buttons = []
 
-    async for item in ChecklistItem.objects.filter(
-        scheduled_task=task
-    ).select_related("completato_da").order_by("ordine"):
+    async for item in (
+        ChecklistItem.objects.filter(scheduled_task=task)
+        .select_related("completato_da")
+        .order_by("ordine")
+    ):
         if item.completato:
             nome = item.completato_da.nome if item.completato_da else "?"
-            ora = timezone.localtime(item.completato_at).strftime("%H:%M") if item.completato_at else ""
+            ora = (
+                timezone.localtime(item.completato_at).strftime("%H:%M")
+                if item.completato_at
+                else ""
+            )
             completed_lines.append(f"✅ {item.descrizione} - {nome} ({ora})")
         else:
-            pending_buttons.append([
-                InlineKeyboardButton(
-                    item.descrizione,
-                    callback_data=f"chk:{item.pkid}",
-                )
-            ])
+            pending_buttons.append(
+                [
+                    InlineKeyboardButton(
+                        item.descrizione,
+                        callback_data=f"chk:{item.pkid}",
+                    )
+                ]
+            )
 
     text = f"Checklist: {task.nome}\n"
     if completed_lines:
@@ -1490,12 +1510,16 @@ async def send_scheduled_task_reminders(context: ContextTypes.DEFAULT_TYPE) -> N
                 checklist_lines.append(f"- {item.descrizione}")
             checklist_text = "\n".join(checklist_lines)
 
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton(
-                    "Inizia Timbratura",
-                    callback_data=f"task_start:{task.pkid}",
-                )]
-            ])
+            keyboard = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "Inizia Timbratura",
+                            callback_data=f"task_start:{task.pkid}",
+                        )
+                    ]
+                ]
+            )
 
             try:
                 await context.bot.send_message(
@@ -1558,7 +1582,9 @@ async def handle_task_start_callback(
         fkvolontario=volontario, fkscheduled_task=task
     ).afirst()
     if existing_entry:
-        await query.answer("Hai gia registrato l'entrata per questa attivita.", show_alert=True)
+        await query.answer(
+            "Hai gia registrato l'entrata per questa attivita.", show_alert=True
+        )
         return
 
     # Check for open timbratura
@@ -1588,7 +1614,7 @@ async def handle_task_start_callback(
 
     await context.bot.send_message(
         chat_id=chat_id,
-        text=f"Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M} per \"{task.nome}\".",
+        text=f'Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M} per "{task.nome}".',
     )
 
     # Send checklist message and store its ID on the timbratura
@@ -1644,9 +1670,7 @@ async def handle_checklist_toggle_callback(
         fkscheduled_task=task, checklist_message_id__isnull=False
     ).select_related("fkvolontario"):
         try:
-            tg_user = await TelegramUser.objects.aget(
-                volontario=entry.fkvolontario
-            )
+            tg_user = await TelegramUser.objects.aget(volontario=entry.fkvolontario)
         except TelegramUser.DoesNotExist:
             continue
         try:
@@ -1690,7 +1714,9 @@ async def send_weekly_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = settings.TELEGRAM_SURVEY_CHAT_ID
 
     if not chat_id:
-        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping weekly summary")
+        logger.warning(
+            "TELEGRAM_SURVEY_CHAT_ID not configured, skipping weekly summary"
+        )
         return
 
     local_now = timezone.localtime(timezone.now())
@@ -1793,9 +1819,7 @@ def create_application() -> Application:
         per_message=False,  # One conversation per user at a time, no need for per-message tracking
         states={
             ConversationState.WAITING_SERVIZIO_TYPE.value: [
-                CallbackQueryHandler(
-                    handle_servizio_type_callback, pattern=r"^stype:"
-                ),
+                CallbackQueryHandler(handle_servizio_type_callback, pattern=r"^stype:"),
             ],
             ConversationState.WAITING_SERVIZIO_NEW_TYPE.value: [
                 MessageHandler(
@@ -1813,11 +1837,15 @@ def create_application() -> Application:
             ],
             ConversationState.WAITING_SERVIZIO_END_TIME.value: [
                 CommandHandler("salta", _skip_servizio_end_time),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_end_time),
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND, handle_servizio_end_time
+                ),
             ],
             ConversationState.WAITING_SERVIZIO_POLL_CLOSE_DATE.value: [
                 CommandHandler("salta", _skip_servizio_poll_close_date),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_servizio_poll_close_date),
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND, handle_servizio_poll_close_date
+                ),
             ],
         },
         fallbacks=[
@@ -1864,9 +1892,7 @@ def create_application() -> Application:
     )
 
     # Locked topic enforcement (group=-1 so it runs before all other handlers)
-    application.add_handler(
-        MessageHandler(filters.ALL, enforce_locked_topic), group=-1
-    )
+    application.add_handler(MessageHandler(filters.ALL, enforce_locked_topic), group=-1)
 
     return application
 

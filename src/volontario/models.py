@@ -54,7 +54,9 @@ class Organizzazione(models.Model):
 
 
 class Volontario(models.Model):
-    codice_fiscale = CodiceFiscaleField(primary_key=True, unique=True, null=False, blank=False)
+    codice_fiscale = CodiceFiscaleField(
+        primary_key=True, unique=True, null=False, blank=False
+    )
     nome = models.CharField(max_length=30)
     cognome = models.CharField(max_length=30)
     fkorganizzazione = models.ForeignKey(

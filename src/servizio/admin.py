@@ -36,7 +36,14 @@ class ServizioTypeAdmin(admin.ModelAdmin):
 
 @admin.register(Servizio)
 class ServizioAdmin(admin.ModelAdmin):
-    list_display = ["nome", "type", "data_ora", "data_ora_fine", "send_message", "volontari_count"]
+    list_display = [
+        "nome",
+        "type",
+        "data_ora",
+        "data_ora_fine",
+        "send_message",
+        "volontari_count",
+    ]
     list_filter = ["type", "data_ora", "send_message"]
     search_fields = ["nome"]
     date_hierarchy = "data_ora"
@@ -49,7 +56,13 @@ class ServizioAdmin(admin.ModelAdmin):
 
 @admin.register(VolontarioServizioMap)
 class VolontarioServizioMapAdmin(admin.ModelAdmin):
-    list_display = ["fkvolontario", "fkservizio", "risposta", "risposta_at", "idoneo_display"]
+    list_display = [
+        "fkvolontario",
+        "fkservizio",
+        "risposta",
+        "risposta_at",
+        "idoneo_display",
+    ]
     list_filter = ["risposta", "fkservizio"]
     search_fields = ["fkvolontario__nome", "fkvolontario__cognome", "fkservizio__nome"]
     raw_id_fields = ["fkvolontario", "fkservizio"]
@@ -58,7 +71,9 @@ class VolontarioServizioMapAdmin(admin.ModelAdmin):
     def idoneo_display(self, obj):
         if obj.fkservizio.type is None:
             return True
-        return volontario_ha_dotazioni_per_servizio(obj.fkvolontario, obj.fkservizio.type)
+        return volontario_ha_dotazioni_per_servizio(
+            obj.fkvolontario, obj.fkservizio.type
+        )
 
 
 @admin.register(Timbratura)
