@@ -11,6 +11,7 @@ from telegram import (
     LinkPreviewOptions,
     Update,
 )
+from telegram.constants import ChatMemberStatus
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -94,6 +95,57 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int | Non
     return ConversationState.WAITING_CODICE_FISCALE.value
 
 
+async def invite_to_group(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> None:
+    """Invite a freshly-linked user to the survey group chat if not already a member.
+
+    Telegram bots cannot add a user to a group directly, so we generate a
+    single-use invite link and send it to the user in a private message.
+    """
+    chat_id = getattr(settings, "TELEGRAM_SURVEY_CHAT_ID", None)
+    if not chat_id:
+        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping group invite")
+        return
+
+    # Check current membership; if we can't determine it, fall through and invite.
+    try:
+        member = await context.bot.get_chat_member(chat_id=chat_id, user_id=user_id)
+        if member.status == ChatMemberStatus.BANNED:
+            logger.warning(
+                f"User {user_id} is banned from group {chat_id}, not inviting"
+            )
+            return
+        if member.status != ChatMemberStatus.LEFT:
+            # member / administrator / owner / restricted -> already in the group
+            logger.debug(f"User {user_id} already in group {chat_id}, skipping invite")
+            return
+    except Exception as e:
+        logger.debug(f"Could not determine membership for {user_id} in {chat_id}: {e}")
+
+    # Create a single-use invite link and DM it to the user.
+    try:
+        invite = await context.bot.create_chat_invite_link(
+            chat_id=chat_id,
+            member_limit=1,
+            name=f"Invito {user_id}",
+        )
+    except Exception as e:
+        logger.error(f"Failed to create invite link for group {chat_id}: {e}")
+        return
+
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                "📨 Non risulti ancora nel gruppo.\n\n"
+                "Usa questo link per unirti:\n"
+                f"{invite.invite_link}"
+            ),
+        )
+        logger.info(f"Sent group invite link to user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to send invite link to {user_id}: {e}")
+
+
 async def handle_codice_fiscale(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
@@ -159,6 +211,10 @@ async def handle_codice_fiscale(
         f"Organizzazione: {volontario.fkorganizzazione or 'Non assegnata'}\n\n"
         f"Usa /help per vedere i comandi disponibili."
     )
+
+    # Invite the user to the group chat if they are not already a member.
+    await invite_to_group(context, user.id)
+
     return ConversationHandler.END
 
 
