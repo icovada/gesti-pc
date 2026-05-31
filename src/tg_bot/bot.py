@@ -1714,7 +1714,7 @@ def create_application() -> Application:
     job_queue.run_daily(
         send_weekly_summary,
         time=dt_time(9, 0, 0, tzinfo=ZoneInfo("Europe/Rome")),
-        days=(0,),
+        days=(1,),
     )
 
     # Conversation handler for /start and association flow
