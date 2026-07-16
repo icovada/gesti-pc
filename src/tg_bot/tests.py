@@ -374,7 +374,7 @@ def _job_context(categories):
 
 @override_settings(
     TELEGRAM_SURVEY_CHAT_ID="-1001234567890",
-    ALLERTALOM_THREAD_ID=1,
+    ALLERTALOM_THREAD_ID=None,
     ALLERTALOM_COMUNE_ISTAT="108055",
     ALLERTALOM_MIN_LEVEL=1,
     ALLERTALOM_HORIZON_HOURS=24,
@@ -393,9 +393,9 @@ class CheckAllerteTests(TestCase):
         context = await self._run([_item(1, now, "Codice GIALLO")])
 
         context.bot.send_message.assert_called_once()
-        # Alerts go to the main forum topic (thread 1).
-        self.assertEqual(
-            context.bot.send_message.call_args.kwargs["message_thread_id"], 1
+        # Alerts go to the main topic ("General") → message_thread_id omitted (None).
+        self.assertIsNone(
+            context.bot.send_message.call_args.kwargs["message_thread_id"]
         )
         state = await AllertaMeteoStato.objects.aget(
             cd_istat_comune="108055", cd_tipologia_gis=7

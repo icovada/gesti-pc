@@ -126,7 +126,7 @@ Routes: `/admin/`, `/auth/login/<token>/`, `/login/`, `/login/status/<token>/`.
 | `ALLERTALOM_MONITOR` | `cat:seconds` pairs, comma-separated (default `7:600,9:600,10:600,3:3600,8:3600`); empty disables the feature. Categories: 7=temporali, 9=idrogeologico, 10=idraulico, 8=vento forte, 2=neve, 3=incendi boschivi |
 | `ALLERTALOM_HORIZON_HOURS` | Look-ahead window for an "active" alert (default `24`) |
 | `ALLERTALOM_MIN_LEVEL` | Minimum level that triggers a notification (default `1`=giallo) |
-| `ALLERTALOM_THREAD_ID` | Forum topic ID where weather alerts are posted (default `1`, main topic) |
+| `ALLERTALOM_THREAD_ID` | Forum topic ID for weather alerts; empty (default) posts to the main "General" topic |
 | `DEBUG` | `"True"` to enable Django debug |
 | `ALLOWED_HOSTS` | Comma-separated hosts (default `*`) |
 | `STATIC_ROOT` / `MEDIA_ROOT` | File dirs |

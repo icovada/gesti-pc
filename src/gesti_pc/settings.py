@@ -175,8 +175,11 @@ ALLERTALOM_HORIZON_HOURS = int(os.getenv("ALLERTALOM_HORIZON_HOURS", "24"))
 # Livello minimo che fa scattare una notifica (1=giallo, 2=arancione, 3=rosso).
 ALLERTALOM_MIN_LEVEL = int(os.getenv("ALLERTALOM_MIN_LEVEL", "1"))
 
-# Forum topic ID dove pubblicare le allerte meteo (default: thread principale = 1).
-ALLERTALOM_THREAD_ID = int(os.getenv("ALLERTALOM_THREAD_ID", "1"))
+# Forum topic ID dove pubblicare le allerte meteo. Lasciare vuoto per il thread
+# principale (topic "General"): in tal caso message_thread_id viene omesso, perché
+# Telegram non accetta un ID esplicito per il General.
+_allerta_thread = os.getenv("ALLERTALOM_THREAD_ID")
+ALLERTALOM_THREAD_ID = int(_allerta_thread) if _allerta_thread else None
 
 STATIC_ROOT = os.getenv("STATIC_ROOT")
 MEDIA_ROOT = os.getenv("MEDIA_ROOT")
