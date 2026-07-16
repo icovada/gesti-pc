@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from datetime import datetime, time as dt_time, timedelta
 from enum import Enum, auto
 from zoneinfo import ZoneInfo
@@ -27,7 +28,8 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
-from .models import LoginToken, TelegramUser, WebLoginRequest
+from tg_bot import allertalom
+from .models import AllertaMeteoStato, LoginToken, TelegramUser, WebLoginRequest
 from servizio.models import (
     ChecklistItem,
     ScheduledTask,
@@ -1774,6 +1776,100 @@ async def send_weekly_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(f"Failed to send weekly summary: {e}")
 
 
+async def check_allerte(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Controlla AllertaLOM e avvisa il gruppo quando un'allerta cambia livello.
+
+    Le categorie da controllare in questa esecuzione arrivano da ``context.job.data``.
+    Per evitare notifiche duplicate confrontiamo il livello corrente con l'ultimo
+    memorizzato in ``AllertaMeteoStato`` e pubblichiamo un messaggio solo se cambia.
+    """
+    chat_id = settings.TELEGRAM_SURVEY_CHAT_ID
+    if not chat_id:
+        logger.warning("TELEGRAM_SURVEY_CHAT_ID not configured, skipping allerta check")
+        return
+
+    categories = context.job.data["categories"]
+    comune = settings.ALLERTALOM_COMUNE_ISTAT
+    min_level = settings.ALLERTALOM_MIN_LEVEL
+
+    for categoria in categories:
+        try:
+            items = await allertalom.fetch_forecast(categoria, comune)
+        except Exception as e:
+            logger.error("AllertaLOM fetch failed for category %s: %s", categoria, e)
+            continue
+
+        alert = allertalom.current_alert(
+            items, timezone.now(), settings.ALLERTALOM_HORIZON_HOURS, min_level
+        )
+        if alert is None:
+            logger.debug("No AllertaLOM data for category %s", categoria)
+            continue
+
+        new_level = alert["cd_livello"]
+        state, created = await AllertaMeteoStato.objects.aget_or_create(
+            cd_istat_comune=comune,
+            cd_tipologia_gis=categoria,
+            defaults={
+                "cd_livello": new_level,
+                "livello": alert["livello"],
+                "nome_zona": alert["nome_zona"],
+                "codice_zona": alert["codice_zona"],
+            },
+        )
+
+        old_level = 0 if created else state.cd_livello
+
+        if created:
+            should_notify = new_level >= min_level
+        else:
+            should_notify = new_level != old_level and (
+                new_level >= min_level or old_level >= min_level
+            )
+
+        if not should_notify:
+            # Keep the stored zone/level fresh even when we don't notify.
+            if not created and (
+                state.cd_livello != new_level
+                or state.nome_zona != alert["nome_zona"]
+                or state.codice_zona != alert["codice_zona"]
+            ):
+                state.cd_livello = new_level
+                state.livello = alert["livello"]
+                state.nome_zona = alert["nome_zona"]
+                state.codice_zona = alert["codice_zona"]
+                await state.asave()
+            continue
+
+        message = allertalom.build_message(
+            categoria, alert, old_level, new_level, comune
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                message_thread_id=settings.ALLERTALOM_THREAD_ID,
+                text=message,
+                parse_mode="Markdown",
+            )
+            logger.info(
+                "Sent AllertaLOM alert for category %s (%s -> %s)",
+                categoria,
+                old_level,
+                new_level,
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to send AllertaLOM alert for category %s: %s", categoria, e
+            )
+            continue
+
+        state.cd_livello = new_level
+        state.livello = alert["livello"]
+        state.nome_zona = alert["nome_zona"]
+        state.codice_zona = alert["codice_zona"]
+        await state.asave()
+
+
 def create_application() -> Application:
     """Create and configure the bot application."""
     if not settings.TELEGRAM_BOT_TOKEN:
@@ -1798,6 +1894,21 @@ def create_application() -> Application:
         time=dt_time(9, 0, 0, tzinfo=ZoneInfo("Europe/Rome")),
         days=(1,),
     )
+
+    # AllertaLOM: one repeating job per distinct polling interval, each checking
+    # the categories configured for that interval.
+    allerta_by_interval: dict[int, list[int]] = defaultdict(list)
+    for categoria, interval in settings.ALLERTALOM_MONITOR.items():
+        allerta_by_interval[interval].append(categoria)
+    for offset, (interval, categories) in enumerate(
+        sorted(allerta_by_interval.items())
+    ):
+        job_queue.run_repeating(
+            check_allerte,
+            interval=interval,
+            first=40 + offset * 5,
+            data={"categories": categories},
+        )
 
     # Conversation handler for /start and association flow
     start_conv_handler = ConversationHandler(

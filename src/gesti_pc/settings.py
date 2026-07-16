@@ -154,6 +154,30 @@ TELEGRAM_LOCKED_THREAD_IDS = [int(x) for x in _locked_ids.split(",") if x.strip(
 _no_msg_ids = os.getenv("TELEGRAM_NO_MESSAGE_THREAD_IDS", "")
 TELEGRAM_NO_MESSAGE_THREAD_IDS = [int(x) for x in _no_msg_ids.split(",") if x.strip()]
 
+# AllertaLOM — allerte meteo Regione Lombardia
+# Codice ISTAT del comune da monitorare (default: comune di riferimento del gruppo).
+ALLERTALOM_COMUNE_ISTAT = os.getenv("ALLERTALOM_COMUNE_ISTAT", "108055")
+
+# Categorie da monitorare e ogni quanto (secondi), come coppie "cdTipologiaGis:intervallo"
+# separate da virgola. Categorie: 7=temporali, 9=idrogeologico, 10=idraulico,
+# 8=vento forte, 2=neve, 3=incendi boschivi. Stringa vuota = feature disattivata.
+# Default: temporali/idrogeologico/idraulico ogni 10 min, incendi boschivi ogni ora.
+_allerta_monitor = os.getenv("ALLERTALOM_MONITOR", "7:600,9:600,10:600,3:3600,8:3600")
+ALLERTALOM_MONITOR = {
+    int(p.split(":")[0]): int(p.split(":")[1])
+    for p in _allerta_monitor.split(",")
+    if p.strip()
+}
+
+# Orizzonte temporale (ore) entro cui considerare un'allerta "in corso".
+ALLERTALOM_HORIZON_HOURS = int(os.getenv("ALLERTALOM_HORIZON_HOURS", "24"))
+
+# Livello minimo che fa scattare una notifica (1=giallo, 2=arancione, 3=rosso).
+ALLERTALOM_MIN_LEVEL = int(os.getenv("ALLERTALOM_MIN_LEVEL", "1"))
+
+# Forum topic ID dove pubblicare le allerte meteo (default: thread principale = 1).
+ALLERTALOM_THREAD_ID = int(os.getenv("ALLERTALOM_THREAD_ID", "1"))
+
 STATIC_ROOT = os.getenv("STATIC_ROOT")
 MEDIA_ROOT = os.getenv("MEDIA_ROOT")
 

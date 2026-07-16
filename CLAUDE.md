@@ -66,6 +66,8 @@ src/
 - `TelegramUser` — 1:1 link between Telegram ID and `Volontario`; tracks linking status
 - `LoginToken` — one-time web-login token (10-min expiry)
 - `WebLoginRequest` — web login pending Telegram approval (5-min expiry)
+- `AllertaMeteoStato` — last notified AllertaLOM alert level per (comune, category); used
+  to de-duplicate weather-alert notifications
 
 **magazzino** (`src/magazzino/models.py`)
 - `TipoDotazione` — equipment type
@@ -95,7 +97,14 @@ task volunteers).
 
 **Scheduled jobs (job_queue):** service reminders (~30 min before, with clock-in button),
 close expired polls, scheduled-task reminders (48h before), clock-out reminders (at end
-time), equipment reminders (day before, 8 PM), weekly summary (Monday 9 AM Rome).
+time), equipment reminders (day before, 8 PM), weekly summary (Monday 9 AM Rome),
+AllertaLOM weather-alert checks (per-category polling; see `src/tg_bot/allertalom.py`).
+
+**AllertaLOM weather alerts** (`src/tg_bot/allertalom.py`): the `check_allerte` job polls the
+Regione Lombardia AllertaLOM portal (XML endpoint) for the configured comune and posts a
+message to the survey chat when an alert appears, escalates, improves, or clears (giallo/
+arancione/rosso). Polling categories and their intervals are set via `ALLERTALOM_MONITOR`;
+last-notified levels are stored in `AllertaMeteoStato` to avoid duplicate messages.
 
 ## Web access
 
@@ -113,6 +122,11 @@ Routes: `/admin/`, `/auth/login/<token>/`, `/login/`, `/login/status/<token>/`.
 | `TELEGRAM_LOCKED_THREAD_IDS` | Comma-separated topic IDs kept closed |
 | `TELEGRAM_NO_MESSAGE_THREAD_IDS` | Comma-separated topic IDs where only the bot may post |
 | `SITE_URL` | Base URL for login links (default `http://localhost:8000`) |
+| `ALLERTALOM_COMUNE_ISTAT` | ISTAT code of the comune to monitor (default `108055`) |
+| `ALLERTALOM_MONITOR` | `cat:seconds` pairs, comma-separated (default `7:600,9:600,10:600,3:3600,8:3600`); empty disables the feature. Categories: 7=temporali, 9=idrogeologico, 10=idraulico, 8=vento forte, 2=neve, 3=incendi boschivi |
+| `ALLERTALOM_HORIZON_HOURS` | Look-ahead window for an "active" alert (default `24`) |
+| `ALLERTALOM_MIN_LEVEL` | Minimum level that triggers a notification (default `1`=giallo) |
+| `ALLERTALOM_THREAD_ID` | Forum topic ID where weather alerts are posted (default `1`, main topic) |
 | `DEBUG` | `"True"` to enable Django debug |
 | `ALLOWED_HOSTS` | Comma-separated hosts (default `*`) |
 | `STATIC_ROOT` / `MEDIA_ROOT` | File dirs |

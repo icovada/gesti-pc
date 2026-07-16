@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import LoginToken, TelegramUser
+from .models import AllertaMeteoStato, LoginToken, TelegramUser
 
 
 @admin.register(TelegramUser)
@@ -44,6 +44,38 @@ class LoginTokenAdmin(admin.ModelAdmin):
     search_fields = ["token", "telegram_user__username", "telegram_user__telegram_id"]
     raw_id_fields = ["telegram_user"]
     readonly_fields = ["token", "telegram_user", "created_at", "used_at"]
+
+    def has_module_permission(self, request):
+        if request.user.is_superuser:
+            return True
+        return request.user.groups.filter(name="IT Admin").exists()
+
+    def has_view_permission(self, request, obj=None):
+        return self.has_module_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        return self.has_module_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        return self.has_module_permission(request)
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(AllertaMeteoStato)
+class AllertaMeteoStatoAdmin(admin.ModelAdmin):
+    list_display = [
+        "cd_istat_comune",
+        "cd_tipologia_gis",
+        "nome_zona",
+        "livello",
+        "cd_livello",
+        "notified_at",
+    ]
+    list_filter = ["cd_tipologia_gis", "cd_livello"]
+    search_fields = ["cd_istat_comune", "nome_zona", "codice_zona"]
+    readonly_fields = ["notified_at"]
 
     def has_module_permission(self, request):
         if request.user.is_superuser:

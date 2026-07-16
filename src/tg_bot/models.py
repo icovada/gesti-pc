@@ -130,3 +130,27 @@ class WebLoginRequest(models.Model):
     @property
     def is_approved(self) -> bool:
         return self.status == self.Status.APPROVED
+
+
+class AllertaMeteoStato(models.Model):
+    """Ultimo livello di allerta meteo AllertaLOM notificato per (comune, categoria).
+
+    Serve al task periodico per evitare notifiche duplicate: pubblica un messaggio
+    nel gruppo solo quando il livello cambia rispetto a quello memorizzato qui.
+    """
+
+    cd_istat_comune = models.CharField(max_length=6)
+    cd_tipologia_gis = models.IntegerField()
+    nome_zona = models.CharField(max_length=128, blank=True)
+    codice_zona = models.CharField(max_length=32, blank=True)
+    cd_livello = models.IntegerField(default=0)
+    livello = models.CharField(max_length=64, blank=True)
+    notified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Stato Allerta Meteo"
+        verbose_name_plural = "Stati Allerta Meteo"
+        unique_together = ("cd_istat_comune", "cd_tipologia_gis")
+
+    def __str__(self) -> str:
+        return f"Comune {self.cd_istat_comune} / tipologia {self.cd_tipologia_gis}: {self.livello or self.cd_livello}"
