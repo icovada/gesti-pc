@@ -1,0 +1,47 @@
+{% extends "webapp/base.html" %}
+{% block title %}Accesso — GestiPC{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<div class="center-page">
+    <div class="card">
+        <h1>GestiPC</h1>
+        <p id="gate-msg" class="lead">Accesso in corso…</p>
+        <a id="gate-login" class="btn" href="{% url 'web_login' %}?next={{ request.get_full_path|urlencode }}" hidden>Accedi</a>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    const msg = document.getElementById("gate-msg");
+    const loginLink = document.getElementById("gate-login");
+    const loginUrl = loginLink.getAttribute("href");
+
+    if (!window.GestiPC.inTelegram) {
+        window.location.replace(loginUrl);
+        return;
+    }
+
+    const body = new URLSearchParams({ init_data: window.GestiPC.tg.initData });
+    fetch("{% url 'webapp:telegram_auth' %}", {
+        method: "POST",
+        headers: { "X-CSRFToken": "{{ csrf_token }}" },
+        body: body,
+        credentials: "same-origin",
+    })
+        .then((r) => r.json())
+        .then((res) => {
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                msg.textContent = res.error || "Accesso non riuscito.";
+                msg.classList.add("error-text");
+            }
+        })
+        .catch(() => {
+            msg.textContent = "Errore di connessione. Riprova.";
+            msg.classList.add("error-text");
+        });
+})();
+</script>
+{% endblock %}

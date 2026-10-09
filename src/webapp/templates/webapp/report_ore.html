@@ -1,0 +1,98 @@
+{% extends "webapp/base.html" %}
+{% load static humanize_ore %}
+{% block title %}Report ore — GestiPC{% endblock %}
+{% block body_attrs %} data-back="{% url 'webapp:home' %}"{% endblock %}
+{% block content %}
+<h1>Report ore</h1>
+<p class="lead">Dal {{ report.start|date:"j F Y" }} al {{ report.end|date:"j F Y" }} · solo turni chiusi</p>
+
+<div class="filters">
+    {% for key, label in presets %}
+    <a class="chip" href="?periodo={{ key }}"{% if preset == key %} aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+    <form class="range" method="get">
+        <input type="date" name="da" value="{{ report.start|date:'Y-m-d' }}" aria-label="Dal">
+        <span>→</span>
+        <input type="date" name="a" value="{{ report.end|date:'Y-m-d' }}" aria-label="Al">
+        <button class="btn secondary" type="submit">Applica</button>
+    </form>
+</div>
+
+<div class="tiles">
+    <div class="tile">
+        <div class="label">Ore totali</div>
+        <div class="value">{{ report.ore_totali|ore }}</div>
+    </div>
+    <div class="tile">
+        <div class="label">Volontari attivi</div>
+        <div class="value">{{ report.volontari_attivi }}</div>
+    </div>
+    <div class="tile">
+        <div class="label">Media per volontario</div>
+        <div class="value">{{ report.media_per_volontario|ore }}</div>
+    </div>
+    <div class="tile">
+        <div class="label">Turni</div>
+        <div class="value">{{ report.turni }}</div>
+        <div class="sub">{{ report.turni_aperti }} attualmente apert{{ report.turni_aperti|pluralize:"o,i" }}</div>
+    </div>
+</div>
+
+<section class="card">
+    <h2>Ore per mese</h2>
+    <div class="legend">
+        {% for key, label in categorie %}<span style="--swatch: var(--series-{{ forloop.counter }})">{{ label }}</span>{% endfor %}
+    </div>
+    <div class="chart-box"><canvas id="chart-mesi" role="img" aria-label="Ore per mese, suddivise per tipo di attività"></canvas></div>
+</section>
+
+<section class="card">
+    <h2>Ore per volontario</h2>
+    {% if report.per_volontario %}
+    <div class="chart-box"><canvas id="chart-volontari" role="img" aria-label="Ore per volontario"></canvas></div>
+    {% else %}
+    <p class="empty">Nessuna ora registrata nel periodo.</p>
+    {% endif %}
+</section>
+
+<section class="card">
+    <div class="card-head">
+        <h2>Dettaglio</h2>
+        <a class="btn secondary" href="?{% if csv_query %}{{ csv_query }}&amp;{% endif %}formato=csv">Scarica CSV</a>
+    </div>
+    {% if report.per_volontario %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Volontario</th>
+                    <th class="num">Ore</th>
+                    <th class="num">Turni</th>
+                    {% for key, label in categorie %}<th class="num">{{ label }}</th>{% endfor %}
+                    <th>Ultima entrata</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in report.per_volontario %}
+                <tr>
+                    <td>{{ v.nome }}</td>
+                    <td class="num"><strong>{{ v.ore|ore }}</strong></td>
+                    <td class="num">{{ v.turni }}</td>
+                    {% for key, label in categorie %}<td class="num">{{ v.per_categoria|get_item:key|ore }}</td>{% endfor %}
+                    <td>{{ v.ultima_entrata|date:"j M Y" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="empty">Nessun dato.</p>
+    {% endif %}
+</section>
+
+{{ chart_data|json_script:"chart-data" }}
+{% endblock %}
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="{% static 'webapp/report_ore.js' %}"></script>
+{% endblock %}

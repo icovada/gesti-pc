@@ -41,6 +41,7 @@ src/
 │   ├── views.py       # Web login flow
 │   └── management/commands/runbot.py
 ├── magazzino/         # Equipment/gear (dotazioni) management
+├── webapp/            # Web app at /app/ — browser + Telegram Mini App (reports)
 └── campo/             # Placeholder app (no models yet)
 ```
 
@@ -89,7 +90,8 @@ uv run src/manage.py runbot     # polling mode
 **Commands:** `/start` (account linking via codice fiscale), `/help`, `/profilo`,
 `/entrata` (clock in — auto-links to active Servizio), `/uscita` (clock out), `/ore`
 (month-to-date hours), `/nuovoservizio` (multi-step create-Servizio conversation),
-`/agenda` (next 14 days), `/login` (one-time web-login token).
+`/agenda` (next 14 days), `/login` (one-time web-login token), `/app` (opens the web app
+as a Mini App; private chats only).
 
 **Callback handlers:** poll answers → `VolontarioServizioMap`; web-login approve/deny;
 clock-in/clock-out buttons; task-start and checklist-toggle (broadcasts updates to all
@@ -110,7 +112,27 @@ last-notified levels are stored in `AllertaMeteoStato` to avoid duplicate messag
 
 Web login is dual-path (`src/tg_bot/views.py`): a one-time token link from `/login` in the
 bot, or a web form (`/login/`) that creates a `WebLoginRequest` approved from Telegram.
-Routes: `/admin/`, `/auth/login/<token>/`, `/login/`, `/login/status/<token>/`.
+Both land on the web app (or the `?next=` page given to `/login/`).
+Routes: `/` (→ `/app/`), `/admin/`, `/app/`, `/auth/login/<token>/`, `/login/`,
+`/login/status/<token>/`.
+
+## Web app (`src/webapp/`)
+
+Server-rendered Django templates, mobile-first, usable both in a browser and as a
+**Telegram Mini App**. Pages: `/app/` (personal hours), `/app/report/ore/` (staff-only
+hours report with Chart.js charts + CSV export via `?formato=csv`).
+- Auth: unauthenticated requests get `gate.html`. Inside Telegram it POSTs the signed
+  `initData` to `/app/auth/telegram/` (validated in `telegram_auth.py`, HMAC with the bot
+  token) and logs in the linked `Volontario.user`; in a browser it redirects to `/login/`.
+- Use the `webapp_view` decorator for new pages (login gate + iframe-embeddable for
+  Telegram Web); add `staff_required` for admin-only pages.
+- Theme: CSS tokens in `static/webapp/app.css`; inside Telegram `app.js` adds `.tg` to
+  `<html>` and the tokens follow the client's `--tg-theme-*` colors.
+- Aggregations live in `reports.py` (hours computed in Python; a `Timbratura` counts in the
+  month of its clock-in; open entries are excluded).
+- Mini Apps require HTTPS: the `/app` command and the chat menu button are enabled only
+  when `SITE_URL` is `https://…`, which also switches session/CSRF cookies to
+  `SameSite=None; Secure` and sets `CSRF_TRUSTED_ORIGINS`.
 
 ## Environment variables
 
@@ -121,7 +143,7 @@ Routes: `/admin/`, `/auth/login/<token>/`, `/login/`, `/login/status/<token>/`.
 | `TELEGRAM_SURVEY_THREAD_ID` | Forum topic ID (optional) |
 | `TELEGRAM_LOCKED_THREAD_IDS` | Comma-separated topic IDs kept closed |
 | `TELEGRAM_NO_MESSAGE_THREAD_IDS` | Comma-separated topic IDs where only the bot may post |
-| `SITE_URL` | Base URL for login links (default `http://localhost:8000`) |
+| `SITE_URL` | Base URL for login links and the Mini App (default `http://localhost:8000`); must be HTTPS for the Mini App |
 | `ALLERTALOM_COMUNE_ISTAT` | ISTAT code of the comune to monitor (default `108055`) |
 | `ALLERTALOM_MONITOR` | `cat:seconds` pairs, comma-separated (default `7:600,9:600,10:600,3:3600,8:3600`); empty disables the feature. Categories: 7=temporali, 9=idrogeologico, 10=idraulico, 8=vento forte, 2=neve, 3=incendi boschivi |
 | `ALLERTALOM_HORIZON_HOURS` | Look-ahead window for an "active" alert (default `24`) |

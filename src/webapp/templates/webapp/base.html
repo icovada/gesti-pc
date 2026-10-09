@@ -1,0 +1,33 @@
+{% load static %}<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{% block title %}GestiPC{% endblock %}</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="{% static 'webapp/app.css' %}">
+    {% block head %}{% endblock %}
+</head>
+<body{% block body_attrs %}{% endblock %}>
+    {% block header %}
+    {% with url=request.resolver_match.url_name %}
+    <header class="topbar">
+        <a class="brand" href="{% url 'webapp:home' %}">GestiPC</a>
+        <nav class="nav">
+            <a href="{% url 'webapp:home' %}"{% if url == 'home' %} aria-current="page"{% endif %}>Home</a>
+            {% if user.is_staff %}
+            <a href="{% url 'webapp:report_ore' %}"{% if url == 'report_ore' %} aria-current="page"{% endif %}>Report ore</a>
+            <a href="{% url 'admin:index' %}">Admin</a>
+            {% endif %}
+        </nav>
+        <form class="logout" method="post" action="{% url 'webapp:logout' %}">
+            {% csrf_token %}<button type="submit">Esci</button>
+        </form>
+    </header>
+    {% endwith %}
+    {% endblock %}
+    <main>{% block content %}{% endblock %}</main>
+    <script src="{% static 'webapp/app.js' %}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

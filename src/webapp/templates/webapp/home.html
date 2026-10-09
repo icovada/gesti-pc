@@ -1,0 +1,59 @@
+{% extends "webapp/base.html" %}
+{% load humanize_ore %}
+{% block content %}
+{% if volontario %}
+<h1>Ciao {{ volontario.nome }}</h1>
+<p class="lead">{{ volontario.fkorganizzazione|default:"" }}</p>
+
+<div class="tiles">
+    <div class="tile">
+        <div class="label">Ore questo mese</div>
+        <div class="value">{{ ore_mese|ore }}</div>
+    </div>
+    <div class="tile">
+        <div class="label">Ore nell'anno</div>
+        <div class="value">{{ ore_anno|ore }}</div>
+    </div>
+    <div class="tile">
+        <div class="label">Stato</div>
+        {% if turno_aperto %}
+        <div class="value">In servizio</div>
+        <div class="sub">dalle {{ turno_aperto.clock_in|time:"H:i" }}</div>
+        {% else %}
+        <div class="value">Fuori servizio</div>
+        {% endif %}
+    </div>
+</div>
+
+<section class="card">
+    <h2>Ultime registrazioni</h2>
+    {% if ultime %}
+    <ul class="list">
+        {% for t in ultime %}
+        <li>
+            <div>
+                <div>{{ t.clock_in|date:"D j M" }}, {{ t.clock_in|time:"H:i" }}–{% if t.clock_out %}{{ t.clock_out|time:"H:i" }}{% else %}…{% endif %}</div>
+                <div class="muted">{% if t.fkservizio %}{{ t.fkservizio.nome }}{% elif t.fkscheduled_task %}{{ t.fkscheduled_task.nome }}{% else %}Attività generica{% endif %}</div>
+            </div>
+            <div>{% if t.duration is not None %}{{ t.duration|minuti_ore }}{% else %}<span class="badge">in corso</span>{% endif %}</div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Nessuna registrazione. Usa /entrata nel bot per timbrare.</p>
+    {% endif %}
+</section>
+{% else %}
+<h1>Benvenuto</h1>
+<p class="lead">Il tuo utente non è associato a un volontario.</p>
+{% endif %}
+
+{% if user.is_staff %}
+<section class="card">
+    <h2>Amministrazione</h2>
+    <ul class="list">
+        <li><a href="{% url 'webapp:report_ore' %}">Report ore volontari</a><span class="muted">›</span></li>
+    </ul>
+</section>
+{% endif %}
+{% endblock %}

@@ -5,7 +5,9 @@ from django.conf import settings
 from django.contrib.auth import login
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_http_methods
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -14,6 +16,27 @@ from volontario.models import Volontario
 from .models import LoginToken, TelegramUser, WebLoginRequest
 
 logger = logging.getLogger(__name__)
+
+LOGIN_NEXT_SESSION_KEY = "login_next"
+
+
+def _remember_next(request) -> None:
+    """Salva in sessione la pagina da aprire dopo il login (?next=...)."""
+    next_url = request.GET.get("next", "")
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        request.session[LOGIN_NEXT_SESSION_KEY] = next_url
+
+
+def _post_login_url(request) -> str:
+    """Pagina di destinazione dopo il login: ?next salvato, altrimenti la web app.
+
+    Va letto prima di login(), che rigenera la sessione mantenendone i dati.
+    """
+    return request.session.pop(LOGIN_NEXT_SESSION_KEY, None) or reverse("webapp:home")
 
 
 def token_login(request, token: str):
@@ -49,8 +72,7 @@ def token_login(request, token: str):
     # Log the user in
     login(request, volontario.user)
 
-    # Redirect to admin (or homepage when available)
-    return redirect("admin:index")
+    return redirect(reverse("webapp:home"))
 
 
 async def _send_login_approval_message(
@@ -96,6 +118,8 @@ def web_login(request):
     """Handle web login via codice fiscale."""
     error = None
     codice_fiscale = ""
+    if request.method == "GET":
+        _remember_next(request)
 
     if request.method == "POST":
         codice_fiscale = request.POST.get("codice_fiscale", "").strip().upper()
@@ -177,11 +201,12 @@ def web_login_status(request, token: str):
         # Log the user in
         volontario = login_request.volontario
         if volontario.user:
+            redirect_url = _post_login_url(request)
             login(request, volontario.user)
             return JsonResponse(
                 {
                     "status": "approved",
-                    "redirect_url": "/admin/",
+                    "redirect_url": redirect_url,
                 }
             )
         else:
