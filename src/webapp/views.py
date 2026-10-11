@@ -11,6 +11,7 @@ from django.contrib.auth import login, logout
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.templatetags.static import static
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
@@ -123,8 +124,19 @@ def logout_view(request):
 
 @require_GET
 def landing(request):
-    """Pagina iniziale pubblica: logo e pulsante "Accedi con Telegram"."""
+    """Pagina iniziale pubblica: logo e pulsante "Accedi con Telegram".
+
+    Chi ha già una sessione va direttamente all'app (o alla pagina ?next=).
+    """
     next_url = request.GET.get("next", "")
+    if request.user.is_authenticated:
+        if not url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            next_url = reverse("webapp:home")
+        return redirect(next_url)
     login_url = reverse("login")
     if next_url:
         login_url += "?" + urlencode({"next": next_url})
