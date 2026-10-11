@@ -100,7 +100,7 @@
     <button class="btn" type="button" data-do="install">Installa</button>
 </section>
 
-{% if user.is_staff %}
+{% if perms.servizio.view_report_ore %}
 <section class="card">
     <h2>Amministrazione</h2>
     <ul class="list">

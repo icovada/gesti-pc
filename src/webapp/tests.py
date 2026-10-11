@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -111,15 +112,26 @@ class AccessTests(WebappTestCase):
         self.assertContains(response, "Ciao Mario")
         self.assertNotContains(response, "Report ore")
 
-    def test_report_forbidden_for_non_staff(self):
-        self.client.force_login(self.user)
-        response = self.client.get(reverse("webapp:report_ore"))
-        self.assertEqual(response.status_code, 403)
-
-    def test_report_for_staff(self):
+    def test_report_forbidden_without_permission(self):
+        # Being staff is not enough: the report needs its own permission.
         self.user.is_staff = True
         self.user.save()
         self.client.force_login(self.user)
+        response = self.client.get(reverse("webapp:report_ore"))
+        self.assertEqual(response.status_code, 403)
+        home = self.client.get(reverse("webapp:home"))
+        self.assertNotContains(home, reverse("webapp:report_ore"))
+
+    def test_report_with_permission(self):
+        self.user.user_permissions.add(
+            Permission.objects.get(
+                codename="view_report_ore", content_type__app_label="servizio"
+            )
+        )
+        self.client.force_login(self.user)
+        home = self.client.get(reverse("webapp:home"))
+        self.assertContains(home, reverse("webapp:report_ore"))
+        self.assertNotContains(home, "Admin</a>")  # admin link still needs is_staff
         Timbratura.objects.create(
             fkvolontario=self.volontario,
             clock_in=timezone.now() - timedelta(hours=3),

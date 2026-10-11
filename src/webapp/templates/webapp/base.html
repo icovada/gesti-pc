@@ -21,8 +21,10 @@
         <a class="brand" href="{% url 'webapp:home' %}">GestiPC</a>
         <nav class="nav">
             <a href="{% url 'webapp:home' %}"{% if url == 'home' %} aria-current="page"{% endif %}>Home</a>
-            {% if user.is_staff %}
+            {% if perms.servizio.view_report_ore %}
             <a href="{% url 'webapp:report_ore' %}"{% if url == 'report_ore' %} aria-current="page"{% endif %}>Report ore</a>
+            {% endif %}
+            {% if user.is_staff %}
             <a href="{% url 'admin:index' %}">Admin</a>
             {% endif %}
         </nav>
