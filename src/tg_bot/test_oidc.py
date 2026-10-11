@@ -144,3 +144,21 @@ class LandingTests(TestCase):
         response = self.client.get("/?next=/app/report/ore/")
         self.assertContains(response, "Accedi con Telegram")
         self.assertContains(response, "/login/?next=%2Fapp%2Freport%2Fore%2F")
+
+    def test_logged_in_user_goes_straight_to_the_app(self):
+        user = get_user_model().objects.create_user(username="mario")
+        self.client.force_login(user)
+        self.assertRedirects(
+            self.client.get("/"), reverse("webapp:home"), fetch_redirect_response=False
+        )
+        self.assertRedirects(
+            self.client.get("/?next=/app/profilo/ore/"),
+            "/app/profilo/ore/",
+            fetch_redirect_response=False,
+        )
+        # An off-site next is ignored.
+        self.assertRedirects(
+            self.client.get("/?next=https://evil.example/"),
+            reverse("webapp:home"),
+            fetch_redirect_response=False,
+        )
