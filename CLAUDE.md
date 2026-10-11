@@ -70,6 +70,9 @@ src/
 - `AllertaMeteoStato` — last notified AllertaLOM alert level per (comune, category); used
   to de-duplicate weather-alert notifications
 
+**webapp** (`src/webapp/models.py`)
+- `PushSubscription` — a device's Web Push subscription, linked to a `Volontario`
+
 **magazzino** (`src/magazzino/models.py`)
 - `TipoDotazione` — equipment type
 - `Dotazione` — equipment assigned to a volunteer (size, issue/return dates, active flag)
@@ -119,7 +122,7 @@ Routes: `/` (→ `/app/`), `/admin/`, `/app/`, `/auth/login/<token>/`, `/login/`
 ## Web app (`src/webapp/`)
 
 Server-rendered Django templates, mobile-first, usable both in a browser and as a
-**Telegram Mini App**. Pages: `/app/` (personal hours), `/app/report/ore/` (staff-only
+**Telegram Mini App**. Pages: `/app/` (clock in/out, notification setup, personal hours), `/app/report/ore/` (staff-only
 hours report with Chart.js charts + CSV export via `?formato=csv`).
 - Auth: unauthenticated requests get `gate.html`. Inside Telegram it POSTs the signed
   `initData` to `/app/auth/telegram/` (validated in `telegram_auth.py`, HMAC with the bot
@@ -130,6 +133,15 @@ hours report with Chart.js charts + CSV export via `?formato=csv`).
   `<html>` and the tokens follow the client's `--tg-theme-*` colors.
 - Aggregations live in `reports.py` (hours computed in Python; a `Timbratura` counts in the
   month of its clock-in; open entries are excluded).
+- **PWA**: installable (`/app/manifest.webmanifest`, service worker at `/app/sw.js` served
+  with scope `/`). Web Push via `pywebpush` (`push.py`): `PushSubscription` stores each
+  device; keys from `manage.py genvapid` → `VAPID_*` env vars (no keys = push disabled).
+  A `Timbratura` post_save signal (`signals.py`) pushes the "in servizio" notification on
+  clock-in (from any channel: app, bot, admin) and replaces it with a summary on clock-out.
+  The bot's 30-min clock-in reminder and end-of-servizio clock-out reminder also go out
+  as push. Notification buttons call `/app/push/azione/` with a signed token (no session).
+  Push is unavailable inside Telegram's webview; on iOS only once added to the Home Screen.
+- Clock-in/out logic shared with the app lives in `servizio/timbrature.py`.
 - Mini Apps require HTTPS: the `/app` command and the chat menu button are enabled only
   when `SITE_URL` is `https://…`, which also switches session/CSRF cookies to
   `SameSite=None; Secure` and sets `CSRF_TRUSTED_ORIGINS`.
@@ -149,6 +161,8 @@ hours report with Chart.js charts + CSV export via `?formato=csv`).
 | `ALLERTALOM_HORIZON_HOURS` | Look-ahead window for an "active" alert (default `24`) |
 | `ALLERTALOM_MIN_LEVEL` | Minimum level that triggers a notification (default `1`=giallo) |
 | `ALLERTALOM_THREAD_ID` | Forum topic ID for weather alerts; empty (default) posts to the main "General" topic |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push keys, from `manage.py genvapid`; empty disables push. Never rotate (existing devices stop receiving) |
+| `VAPID_SUBJECT` | Contact for push services (`mailto:` or `https:`) |
 | `DEBUG` | `"True"` to enable Django debug |
 | `ALLOWED_HOSTS` | Comma-separated hosts (default `*`) |
 | `STATIC_ROOT` / `MEDIA_ROOT` | File dirs |

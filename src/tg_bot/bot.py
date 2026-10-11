@@ -31,6 +31,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from tg_bot import allertalom
+from webapp import push
 from .models import AllertaMeteoStato, LoginToken, TelegramUser, WebLoginRequest
 from servizio.models import (
     ChecklistItem,
@@ -1048,6 +1049,10 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         async for answer in participants:
             volontario = answer.fkvolontario
+            push.send_push_background(
+                str(volontario.pk),
+                push.notifica_promemoria_entrata(servizio, volontario),
+            )
             # Get the telegram user for this volontario
             try:
                 tg_user = await TelegramUser.objects.aget(volontario=volontario)
@@ -1118,6 +1123,11 @@ async def send_clock_out_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         async for entry in open_entries:
             volontario = entry.fkvolontario
+            push.send_push_background(
+                str(volontario.pk),
+                push.notifica_fine_servizio(entry, servizio),
+                ttl=12 * 3600,
+            )
             try:
                 tg_user = await TelegramUser.objects.aget(volontario=volontario)
             except TelegramUser.DoesNotExist:

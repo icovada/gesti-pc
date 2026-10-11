@@ -5,6 +5,61 @@
 <h1>Ciao {{ volontario.nome }}</h1>
 <p class="lead">{{ volontario.fkorganizzazione|default:"" }}</p>
 
+<section class="card turno {% if turno_aperto %}on{% endif %}">
+    {% if turno_aperto %}
+    <div class="turno-stato"><span class="dot"></span>In servizio dalle {{ turno_aperto.clock_in|time:"H:i" }}</div>
+    <p class="muted">{% if turno_aperto.fkservizio %}{{ turno_aperto.fkservizio.nome }}{% elif turno_aperto.fkscheduled_task %}{{ turno_aperto.fkscheduled_task.nome }}{% else %}Attività generica{% endif %}</p>
+    <form method="post" action="{% url 'webapp:timbra' %}">
+        {% csrf_token %}<input type="hidden" name="azione" value="uscita">
+        <button class="btn big danger" type="submit">Timbra uscita</button>
+    </form>
+    {% else %}
+    <div class="turno-stato">Fuori servizio</div>
+    <p class="muted">{% if servizio_in_corso %}In corso: {{ servizio_in_corso.nome }}{% else %}Nessun servizio in corso{% endif %}</p>
+    <form method="post" action="{% url 'webapp:timbra' %}">
+        {% csrf_token %}<input type="hidden" name="azione" value="entrata">
+        <button class="btn big" type="submit">Timbra entrata</button>
+    </form>
+    {% endif %}
+</section>
+
+{% if vapid_public_key %}
+<section class="card" id="notifiche" data-key="{{ vapid_public_key }}"
+         data-subscribe="{% url 'webapp:push_subscribe' %}"
+         data-unsubscribe="{% url 'webapp:push_unsubscribe' %}"
+         data-test="{% url 'webapp:push_test' %}"
+         data-csrf="{{ csrf_token }}" data-site="{{ request.scheme }}://{{ request.get_host }}{% url 'webapp:home' %}">
+    <h2>Notifiche</h2>
+    <p class="muted" data-state="loading">Verifica in corso…</p>
+    <div data-state="telegram" hidden>
+        <p>Installa l'app GestiPC sul telefono per ricevere i promemoria di entrata e uscita.</p>
+        <button class="btn" type="button" data-do="open-browser">Apri nel browser</button>
+    </div>
+    <div data-state="ios-install" hidden>
+        <p>Per ricevere le notifiche su iPhone, aggiungi prima l'app alla schermata Home:</p>
+        <ol class="steps">
+            <li>Tocca <strong>Condividi</strong> <span aria-hidden="true">⎋</span> in Safari</li>
+            <li>Scegli <strong>Aggiungi alla schermata Home</strong></li>
+            <li>Apri GestiPC dalla Home e torna qui</li>
+        </ol>
+    </div>
+    <p data-state="unsupported" hidden>Questo browser non supporta le notifiche.</p>
+    <p data-state="denied" hidden>Le notifiche sono bloccate. Abilitale nelle impostazioni del telefono o del browser per GestiPC.</p>
+    <div data-state="off" hidden>
+        <p>Ricevi un promemoria prima dei servizi e una notifica fissa mentre sei in servizio, con il pulsante per timbrare l'uscita.</p>
+        <button class="btn" type="button" data-do="enable">Attiva notifiche</button>
+    </div>
+    <div data-state="on" hidden>
+        <p>✅ Notifiche attive su questo dispositivo.</p>
+        <div class="row">
+            <button class="btn secondary" type="button" data-do="test">Invia una prova</button>
+            <button class="btn link" type="button" data-do="disable">Disattiva</button>
+        </div>
+    </div>
+    <p class="error-text" data-error hidden></p>
+</section>
+{% endif %}
+
 <div class="tiles">
     <div class="tile">
         <div class="label">Ore questo mese</div>
@@ -13,15 +68,6 @@
     <div class="tile">
         <div class="label">Ore nell'anno</div>
         <div class="value">{{ ore_anno|ore }}</div>
-    </div>
-    <div class="tile">
-        <div class="label">Stato</div>
-        {% if turno_aperto %}
-        <div class="value">In servizio</div>
-        <div class="sub">dalle {{ turno_aperto.clock_in|time:"H:i" }}</div>
-        {% else %}
-        <div class="value">Fuori servizio</div>
-        {% endif %}
     </div>
 </div>
 
@@ -40,13 +86,19 @@
         {% endfor %}
     </ul>
     {% else %}
-    <p class="empty">Nessuna registrazione. Usa /entrata nel bot per timbrare.</p>
+    <p class="empty">Nessuna registrazione.</p>
     {% endif %}
 </section>
 {% else %}
 <h1>Benvenuto</h1>
 <p class="lead">Il tuo utente non è associato a un volontario.</p>
 {% endif %}
+
+<section class="card" id="installa" hidden>
+    <h2>Installa l'app</h2>
+    <p>Aggiungi GestiPC alla schermata Home per aprirla come un'app.</p>
+    <button class="btn" type="button" data-do="install">Installa</button>
+</section>
 
 {% if user.is_staff %}
 <section class="card">

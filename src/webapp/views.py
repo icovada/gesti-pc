@@ -1,18 +1,31 @@
 import csv
+import json
 import logging
 from datetime import date
 from functools import wraps
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.templatetags.static import static
+from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
 
+from servizio.timbrature import (
+    TimbraturaError,
+    registra_entrata,
+    registra_uscita,
+    servizio_in_corso,
+)
 from tg_bot.models import TelegramUser
 
+from . import push
+from .models import PushSubscription
 from .reports import CATEGORIE, hours_report, personal_hours
 from .telegram_auth import validate_init_data
 
@@ -100,9 +113,14 @@ def logout_view(request):
 @webapp_view
 def home(request):
     volontario = getattr(request.user, "volontario", None)
-    context = {"volontario": volontario}
+    context = {
+        "volontario": volontario,
+        "vapid_public_key": settings.VAPID_PUBLIC_KEY if push.is_configured() else "",
+    }
     if volontario is not None:
         context.update(personal_hours(volontario, timezone.localdate()))
+        if context["turno_aperto"] is None:
+            context["servizio_in_corso"] = servizio_in_corso()
     return render(request, "webapp/home.html", context)
 
 
@@ -183,3 +201,171 @@ def _report_csv(report) -> HttpResponse:
 
 def _fmt(hours: float) -> str:
     return f"{hours:.2f}".replace(".", ",")
+
+
+# --- Timbratura dall'app ------------------------------------------------------
+
+
+@require_POST
+@webapp_view
+def timbra(request):
+    volontario = getattr(request.user, "volontario", None)
+    if volontario is None:
+        messages.error(request, "Il tuo utente non è associato a un volontario.")
+        return redirect("webapp:home")
+
+    try:
+        if request.POST.get("azione") == "uscita":
+            entry = registra_uscita(volontario)
+            minutes = int(entry.duration)
+            messages.success(
+                request,
+                f"Uscita registrata alle {timezone.localtime(entry.clock_out):%H:%M} "
+                f"· durata {minutes // 60}h {minutes % 60:02d}m. Grazie!",
+            )
+        else:
+            entry = registra_entrata(volontario)
+            dove = f" per «{entry.fkservizio.nome}»" if entry.fkservizio_id else ""
+            messages.success(
+                request,
+                f"Entrata registrata alle {timezone.localtime(entry.clock_in):%H:%M}"
+                f"{dove}. Buon lavoro!",
+            )
+    except TimbraturaError as e:
+        messages.error(request, str(e))
+    return redirect("webapp:home")
+
+
+# --- PWA: manifest, service worker, notifiche push ----------------------------
+
+
+@require_GET
+def manifest(request):
+    data = {
+        "name": "GestiPC",
+        "short_name": "GestiPC",
+        "description": "Turni, timbrature e servizi dei volontari",
+        "lang": "it",
+        "start_url": "/app/",
+        "scope": "/",
+        "id": "/app/",
+        "display": "standalone",
+        "background_color": "#f4f4f2",
+        "theme_color": "#2a78d6",
+        "icons": [
+            {
+                "src": static("webapp/icons/icon-192.png"),
+                "sizes": "192x192",
+                "type": "image/png",
+            },
+            {
+                "src": static("webapp/icons/icon-512.png"),
+                "sizes": "512x512",
+                "type": "image/png",
+            },
+            {
+                "src": static("webapp/icons/maskable-512.png"),
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "maskable",
+            },
+        ],
+    }
+    return JsonResponse(data, content_type="application/manifest+json")
+
+
+@require_GET
+@never_cache
+def service_worker(request):
+    response = render(
+        request,
+        "webapp/sw.js",
+        {
+            "icon": static("webapp/icons/icon-192.png"),
+            "badge": static("webapp/icons/badge-96.png"),
+        },
+        content_type="application/javascript",
+    )
+    # Servito da /app/ ma con scope sull'intero sito, così anche il login resta nell'app.
+    response["Service-Worker-Allowed"] = "/"
+    return response
+
+
+def _json_body(request) -> dict:
+    try:
+        data = json.loads(request.body)
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+@require_POST
+def push_subscribe(request):
+    volontario = (
+        getattr(request.user, "volontario", None)
+        if request.user.is_authenticated
+        else None
+    )
+    if volontario is None:
+        return JsonResponse({"ok": False, "error": "Accesso richiesto."}, status=403)
+
+    data = _json_body(request)
+    keys = data.get("keys") or {}
+    endpoint = data.get("endpoint", "")
+    if not (
+        endpoint.startswith("https://") and keys.get("p256dh") and keys.get("auth")
+    ):
+        return JsonResponse(
+            {"ok": False, "error": "Iscrizione non valida."}, status=400
+        )
+
+    PushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={
+            "volontario": volontario,
+            "p256dh": keys["p256dh"],
+            "auth": keys["auth"],
+            "user_agent": request.headers.get("User-Agent", "")[:300],
+        },
+    )
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def push_unsubscribe(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False}, status=403)
+    PushSubscription.objects.filter(
+        endpoint=_json_body(request).get("endpoint", ""),
+        volontario__user=request.user,
+    ).delete()
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def push_test(request):
+    """Invia una notifica di prova ai dispositivi dell'utente."""
+    volontario = (
+        getattr(request.user, "volontario", None)
+        if request.user.is_authenticated
+        else None
+    )
+    if volontario is None:
+        return JsonResponse({"ok": False}, status=403)
+    sent = push.send_push(
+        str(volontario.pk),
+        {
+            "title": "🔔 Notifiche attive",
+            "body": "Riceverai qui i promemoria di GestiPC.",
+            "url": "/app/",
+        },
+        ttl=300,
+    )
+    return JsonResponse({"ok": sent > 0, "sent": sent})
+
+
+@csrf_exempt
+@require_POST
+def push_action(request):
+    """Pulsante di una notifica (dal service worker). Autorizzato dal token firmato."""
+    return JsonResponse(push.esegui_azione(_json_body(request).get("token", "")))

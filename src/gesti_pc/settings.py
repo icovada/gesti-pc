@@ -192,6 +192,16 @@ if SITE_URL.startswith("https://"):
     CSRF_COOKIE_SECURE = True
     CSRF_TRUSTED_ORIGINS = [SITE_URL.rstrip("/")]
 
+# Notifiche Web Push della PWA. Generare le chiavi con `manage.py genvapid`.
+# Senza chiavi le notifiche push sono disattivate.
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+# Contatto per i servizi push (mailto: o https:).
+VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@example.com")
+
+# Una sessione dura 90 giorni: la PWA installata non deve richiedere il login spesso.
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 90
+
 STATIC_ROOT = os.getenv("STATIC_ROOT")
 MEDIA_ROOT = os.getenv("MEDIA_ROOT")
 
