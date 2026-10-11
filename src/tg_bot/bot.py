@@ -10,7 +10,9 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     LinkPreviewOptions,
+    MenuButtonWebApp,
     Update,
+    WebAppInfo,
 )
 from telegram.constants import ChatMemberStatus
 from telegram.ext import (
@@ -29,6 +31,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from tg_bot import allertalom
+from webapp import push
 from .models import AllertaMeteoStato, LoginToken, TelegramUser, WebLoginRequest
 from servizio.models import (
     ChecklistItem,
@@ -243,6 +246,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 "/uscita - Registra uscita\n"
                 "/ore - Riepilogo ore del mese\n"
                 "/nuovoservizio - Crea un nuovo servizio\n"
+                "/app - Apri l'app web\n"
                 "/login - Ottieni link di accesso al sito\n"
                 "/help - Mostra questo messaggio"
             )
@@ -483,6 +487,40 @@ async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"{login_url}\n\n"
         f"⚠️ Il link è valido per 10 minuti e può essere usato una sola volta.",
         link_preview_options=LinkPreviewOptions(is_disabled=True),
+    )
+
+
+def get_webapp_url() -> str | None:
+    """URL della web app per la Mini App, o None se SITE_URL non è HTTPS.
+
+    Telegram accetta solo URL HTTPS per le Mini App.
+    """
+    if not settings.SITE_URL.startswith("https://"):
+        return None
+    return f"{settings.SITE_URL.rstrip('/')}/app/"
+
+
+async def open_webapp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a button that opens the web app as a Telegram Mini App."""
+    url = get_webapp_url()
+    if url is None:
+        await update.message.reply_text(
+            "❌ L'app web non è disponibile: il sito non è configurato in HTTPS."
+        )
+        return
+
+    # Mini App buttons are only allowed in private chats.
+    if update.effective_chat.type != "private":
+        await update.message.reply_text(
+            "📱 Scrivimi in privato e usa /app per aprire l'app."
+        )
+        return
+
+    await update.message.reply_text(
+        "📱 Apri GestiPC:",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Apri app", web_app=WebAppInfo(url=url))]]
+        ),
     )
 
 
@@ -1011,6 +1049,10 @@ async def send_servizio_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         async for answer in participants:
             volontario = answer.fkvolontario
+            push.send_push_background(
+                str(volontario.pk),
+                push.notifica_promemoria_entrata(servizio, volontario),
+            )
             # Get the telegram user for this volontario
             try:
                 tg_user = await TelegramUser.objects.aget(volontario=volontario)
@@ -1081,6 +1123,11 @@ async def send_clock_out_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         async for entry in open_entries:
             volontario = entry.fkvolontario
+            push.send_push_background(
+                str(volontario.pk),
+                push.notifica_fine_servizio(entry, servizio),
+                ttl=12 * 3600,
+            )
             try:
                 tg_user = await TelegramUser.objects.aget(volontario=volontario)
             except TelegramUser.DoesNotExist:
@@ -1705,10 +1752,18 @@ async def post_init(application: Application) -> None:
         BotCommand("ore", "Riepilogo ore del mese"),
         BotCommand("nuovoservizio", "Crea un nuovo servizio"),
         BotCommand("agenda", "I tuoi prossimi impegni (14 giorni)"),
+        BotCommand("app", "Apri l'app web"),
         BotCommand("login", "Ottieni link di accesso al sito"),
     ]
     await application.bot.set_my_commands(commands)
     logger.info("Bot commands registered")
+
+    url = get_webapp_url()
+    if url:
+        await application.bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(text="App", web_app=WebAppInfo(url=url))
+        )
+        logger.info("Web app menu button registered: %s", url)
 
 
 async def send_weekly_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1974,6 +2029,7 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("ore", hours_summary))
     application.add_handler(CommandHandler("agenda", agenda))
     application.add_handler(CommandHandler("login", login))
+    application.add_handler(CommandHandler("app", open_webapp))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
     application.add_handler(
         CallbackQueryHandler(handle_web_login_callback, pattern=r"^web_login:")

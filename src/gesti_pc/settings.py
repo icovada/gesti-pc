@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "tg_bot",
     "servizio",
     "magazzino",
+    "webapp",
 ]
 
 MIDDLEWARE = [
@@ -180,6 +181,26 @@ ALLERTALOM_MIN_LEVEL = int(os.getenv("ALLERTALOM_MIN_LEVEL", "1"))
 # Telegram non accetta un ID esplicito per il General.
 _allerta_thread = os.getenv("ALLERTALOM_THREAD_ID")
 ALLERTALOM_THREAD_ID = int(_allerta_thread) if _allerta_thread else None
+
+# La web app gira anche come Telegram Mini App: su Telegram Web è caricata in un
+# iframe di un altro sito, quindi i cookie di sessione/CSRF devono essere
+# SameSite=None (richiede HTTPS, già obbligatorio per le Mini App).
+if SITE_URL.startswith("https://"):
+    SESSION_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SECURE = True
+    CSRF_TRUSTED_ORIGINS = [SITE_URL.rstrip("/")]
+
+# Notifiche Web Push della PWA. Generare le chiavi con `manage.py genvapid`.
+# Senza chiavi le notifiche push sono disattivate.
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+# Contatto per i servizi push (mailto: o https:).
+VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@example.com")
+
+# Una sessione dura 90 giorni: la PWA installata non deve richiedere il login spesso.
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 90
 
 STATIC_ROOT = os.getenv("STATIC_ROOT")
 MEDIA_ROOT = os.getenv("MEDIA_ROOT")

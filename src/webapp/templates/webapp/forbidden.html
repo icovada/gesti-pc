@@ -1,0 +1,12 @@
+{% extends "webapp/base.html" %}
+{% block title %}Accesso negato — GestiPC{% endblock %}
+{% block body_attrs %} data-back="{% url 'webapp:home' %}"{% endblock %}
+{% block content %}
+<div class="center-page">
+    <div class="card">
+        <h1>Accesso negato</h1>
+        <p class="lead">Questa sezione è riservata agli amministratori.</p>
+        <a class="btn" href="{% url 'webapp:home' %}">Torna alla home</a>
+    </div>
+</div>
+{% endblock %}
