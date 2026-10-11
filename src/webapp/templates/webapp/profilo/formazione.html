@@ -1,0 +1,19 @@
+{% extends "webapp/profilo/base.html" %}
+{% block sezione %}
+<h1>Formazione</h1>
+<p class="lead">Corsi e certificazioni che hai conseguito.</p>
+<section class="card">
+    {% if certificazioni %}
+    <ul class="list">
+        {% for c in certificazioni %}
+        <li>
+            <div>{{ c.fkcertificazione.nome }}</div>
+            <div class="muted nowrap">{{ c.data_conseguimento|date:"j M Y" }}</div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Nessuna certificazione registrata.</p>
+    {% endif %}
+</section>
+{% endblock %}

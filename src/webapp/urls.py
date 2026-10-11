@@ -1,11 +1,13 @@
 from django.urls import path
 
-from . import views
+from . import profilo, views
 
 app_name = "webapp"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("profilo/", profilo.profilo, name="profilo"),
+    path("profilo/<slug:sezione>/", profilo.profilo, name="profilo_sezione"),
     path("report/ore/", views.report_ore, name="report_ore"),
     path("auth/telegram/", views.telegram_auth, name="telegram_auth"),
     path("logout/", views.logout_view, name="logout"),
