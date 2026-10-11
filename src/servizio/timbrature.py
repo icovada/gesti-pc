@@ -1,8 +1,10 @@
-"""Logica di entrata/uscita condivisa tra web app e notifiche push."""
+"""Logica di entrata/uscita condivisa tra web app e notifiche push (non il bot)."""
 
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from tg_bot.notify import invia_messaggio_entrata_background
 from volontario.models import Volontario
 
 from .models import Servizio, Timbratura
@@ -39,9 +41,13 @@ def registra_entrata(
             "Hai già un'entrata aperta dalle "
             f"{timezone.localtime(aperta.clock_in):%H:%M del %d/%m/%Y}."
         )
-    return Timbratura.objects.create(
+    entry = Timbratura.objects.create(
         fkvolontario=volontario, fkservizio=servizio or servizio_in_corso()
     )
+    # Le entrate dal bot hanno già il loro messaggio; quelle dall'app o dalle
+    # notifiche ricevono in chat il pulsante per registrare l'uscita.
+    transaction.on_commit(lambda: invia_messaggio_entrata_background(entry.pk))
+    return entry
 
 
 def registra_uscita(volontario: Volontario) -> Timbratura:

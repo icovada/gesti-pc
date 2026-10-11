@@ -39,6 +39,7 @@ src/
 │   ├── bot.py         # Core bot logic (~1800 lines): handlers + scheduled jobs
 │   ├── models.py      # TelegramUser, LoginToken, AllertaMeteoStato
 │   ├── oidc.py        # "Log in with Telegram" (OpenID Connect) client
+│   ├── notify.py      # Telegram messages sent from the web process
 │   ├── views.py       # Web login flow
 │   └── management/commands/runbot.py
 ├── magazzino/         # Equipment/gear (dotazioni) management
@@ -156,7 +157,9 @@ requires the `servizio.view_report_ore` permission; Chart.js charts + CSV export
   The bot's 30-min clock-in reminder and end-of-servizio clock-out reminder also go out
   as push. Notification buttons call `/app/push/azione/` with a signed token (no session).
   Push is unavailable inside Telegram's webview; on iOS only once added to the Home Screen.
-- Clock-in/out logic shared with the app lives in `servizio/timbrature.py`.
+- Clock-in/out logic shared with the app lives in `servizio/timbrature.py`. A clock-in made
+  outside the bot (app button, notification action) also sends the volunteer a Telegram
+  message with the "Registra uscita" button (`tg_bot/notify.py`, background thread).
 - Mini Apps require HTTPS: the `/app` command and the chat menu button are enabled only
   when `SITE_URL` is `https://…`, which also switches session/CSRF cookies to
   `SameSite=None; Secure` and sets `CSRF_TRUSTED_ORIGINS`.
