@@ -167,6 +167,9 @@ class Timbratura(models.Model):
         related_name="timbrature",
     )
     checklist_message_id = models.BigIntegerField(null=True, blank=True)
+    # Presenze inserite o corrette dal volontario dall'app, da poter verificare.
+    inserita_manualmente = models.BooleanField("Inserita a mano", default=False)
+    modificata_at = models.DateTimeField("Modificata a mano il", null=True, blank=True)
 
     class Meta:
         verbose_name = "Registrazione Ore"

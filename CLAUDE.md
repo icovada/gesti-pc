@@ -62,7 +62,8 @@ src/
 - `ChecklistTemplateItem` — template checklist items for a service type
 - `ScheduledTask` — a task with a deadline and assigned volunteers
 - `ChecklistItem` — checklist item for a `ScheduledTask` (tracks who/when completed)
-- `Timbratura` — clock in/out entry; links to a `Servizio` or a `ScheduledTask`
+- `Timbratura` — clock in/out entry; links to a `Servizio` or a `ScheduledTask`; `inserita_manualmente`
+  / `modificata_at` flag entries a volunteer added or corrected from the web app
 
 **tg_bot** (`src/tg_bot/models.py`)
 - `TelegramUser` — 1:1 link between Telegram ID and `Volontario`; tracks linking status
@@ -130,7 +131,11 @@ Server-rendered Django templates, mobile-first, usable both in a browser and as 
 **Telegram Mini App**. Pages: `/app/` (clock in/out, notification setup, personal hours), `/app/profilo/<sezione>/`
 (the volunteer's own data, one page per section with a side menu that becomes a scrollable
 tab bar on phones: `dati`, `dotazioni`, `formazione`, `servizi`, `ore`; see `profilo.py`, add a
-section to `SEZIONI` + `_LOADERS` + a template in `templates/webapp/profilo/`), `/app/report/ore/` (hours report,
+section to `SEZIONI` + `_LOADERS` + a template in `templates/webapp/profilo/`),
+`/app/profilo/ore/nuova/` and `/app/profilo/ore/<pk>/modifica/` (volunteers add a forgotten
+presence — must be linked to a `Servizio` — or correct their own entries; rules in
+`webapp/forms.py`: last 60 days only, no future times, max 24h, no overlaps, times must fall
+near the chosen servizio), `/app/report/ore/` (hours report,
 requires the `servizio.view_report_ore` permission; Chart.js charts + CSV export via `?formato=csv`).
 - Auth: unauthenticated requests get `gate.html`. Inside Telegram it POSTs the signed
   `initData` to `/app/auth/telegram/` (validated in `telegram_auth.py`, HMAC with the bot

@@ -3,14 +3,17 @@
 from collections import defaultdict
 from datetime import date
 
+from django.contrib import messages
 from django.http import Http404
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from magazzino.models import Dotazione
 from servizio.models import Timbratura, VolontarioServizioMap
 from volontario.models import CertificazioneVolontarioMap
 
+from .forms import PresenzaForm, limite_modifica
 from .reports import _local_midnight
 from .views import webapp_view
 
@@ -127,11 +130,84 @@ def _ore(request, volontario) -> dict:
         gruppo["minuti"] += t.duration or 0
 
     return {
+        "limite_modifica": limite_modifica(),
         "anni": anni,
         "anno": anno,
         "mesi": list(mesi.values()),
         "minuti_anno": sum(m["minuti"] for m in mesi.values()),
     }
+
+
+# --- Inserimento e correzione delle presenze ----------------------------------
+
+
+def _url_ore(entry) -> str:
+    anno = timezone.localtime(entry.clock_in).year
+    return f"{reverse('webapp:profilo_sezione', args=['ore'])}?anno={anno}"
+
+
+def _render_presenza(request, form, volontario, entry=None):
+    servizi = {
+        str(s.pk): {
+            "inizio": timezone.localtime(s.data_ora).strftime("%Y-%m-%dT%H:%M"),
+            "fine": timezone.localtime(s.data_ora_fine).strftime("%Y-%m-%dT%H:%M")
+            if s.data_ora_fine
+            else "",
+        }
+        for s in (form.fields["fkservizio"].queryset if form.nuova else [])
+    }
+    return render(
+        request,
+        "webapp/profilo/presenza_form.html",
+        {
+            "sezioni": SEZIONI,
+            "sezione": "ore",
+            "volontario": volontario,
+            "form": form,
+            "entry": entry,
+            "orari_servizi": servizi,
+        },
+    )
+
+
+@webapp_view
+def presenza_nuova(request):
+    volontario = getattr(request.user, "volontario", None)
+    if volontario is None:
+        return redirect("webapp:profilo_sezione", "ore")
+
+    form = PresenzaForm(request.POST or None, volontario=volontario)
+    if request.method == "POST" and form.is_valid():
+        entry = form.save()
+        messages.success(request, "Presenza aggiunta.")
+        return redirect(_url_ore(entry))
+    return _render_presenza(request, form, volontario)
+
+
+@webapp_view
+def presenza_modifica(request, pk):
+    volontario = getattr(request.user, "volontario", None)
+    if volontario is None:
+        raise Http404
+    entry = get_object_or_404(
+        Timbratura.objects.select_related("fkservizio", "fkscheduled_task"),
+        pk=pk,
+        fkvolontario=volontario,
+    )
+    if entry.clock_in < limite_modifica():
+        messages.error(
+            request,
+            "Questa presenza è troppo vecchia per essere modificata. "
+            "Rivolgiti a un responsabile.",
+        )
+        return redirect(_url_ore(entry))
+
+    form = PresenzaForm(request.POST or None, instance=entry, volontario=volontario)
+    if request.method == "POST" and form.is_valid():
+        entry = form.save()
+        messages.success(request, "Presenza aggiornata.")
+        return redirect(_url_ore(entry))
+    return _render_presenza(request, form, volontario, entry)
 
 
 _LOADERS = {

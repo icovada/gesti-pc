@@ -85,8 +85,16 @@ class TimbraturaAdmin(admin.ModelAdmin):
         "duration_display",
         "fkservizio",
         "fkscheduled_task",
+        "inserita_manualmente",
+        "modificata_at",
     ]
-    list_filter = ["clock_in", "fkservizio", "fkscheduled_task"]
+    list_filter = [
+        "clock_in",
+        "inserita_manualmente",
+        ("modificata_at", admin.EmptyFieldListFilter),
+        "fkservizio",
+        "fkscheduled_task",
+    ]
     search_fields = ["fkvolontario__nome", "fkvolontario__cognome"]
     raw_id_fields = ["fkvolontario", "fkservizio", "fkscheduled_task"]
     date_hierarchy = "clock_in"

@@ -253,3 +253,18 @@ tbody tr:last-child td { border-bottom: 0; }
   .fields { grid-template-columns: 1fr; gap: 2px; }
   .fields dd { margin-bottom: 10px; }
 }
+
+/* --- Moduli --- */
+.form .field { margin-bottom: 14px; }
+.form label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.form label .muted { font-weight: 400; }
+.form input, .form select, .form textarea {
+  width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+.form textarea { resize: vertical; }
+.form input:focus, .form select:focus, .form textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.form .has-error input, .form .has-error select { border-color: var(--danger); }
+.field-error { color: var(--danger); font-size: 13px; margin-top: 4px; }
+.entry-side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.edit-link { font-size: 13px; }
