@@ -58,14 +58,23 @@ def webapp_view(view):
     return wrapper
 
 
-def staff_required(view):
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_staff:
-            return render(request, "webapp/forbidden.html", status=403)
-        return view(request, *args, **kwargs)
+# Permesso per il report ore; si assegna a utenti o gruppi dall'admin.
+PERM_REPORT_ORE = "servizio.view_report_ore"
 
-    return wrapper
+
+def permission_required(perm: str):
+    """Come il decoratore di Django, ma mostra la pagina "accesso negato" della web app."""
+
+    def decorator(view):
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            if not request.user.has_perm(perm):
+                return render(request, "webapp/forbidden.html", status=403)
+            return view(request, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 @require_POST
@@ -163,7 +172,7 @@ def _parse_range(params, today: date) -> tuple[date, date, str]:
 
 
 @webapp_view
-@staff_required
+@permission_required(PERM_REPORT_ORE)
 def report_ore(request):
     start, end, preset = _parse_range(request.GET, timezone.localdate())
     report = hours_report(start, end)

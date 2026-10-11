@@ -172,6 +172,9 @@ class Timbratura(models.Model):
         verbose_name = "Registrazione Ore"
         verbose_name_plural = "Registrazioni Ore"
         ordering = ["-clock_in"]
+        permissions = [
+            ("view_report_ore", "Può vedere il report ore dei volontari"),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=~(

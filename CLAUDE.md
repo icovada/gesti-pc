@@ -127,13 +127,15 @@ Routes: `/`, `/admin/`, `/app/`, `/login/`, `/auth/telegram/callback/`, `/auth/l
 ## Web app (`src/webapp/`)
 
 Server-rendered Django templates, mobile-first, usable both in a browser and as a
-**Telegram Mini App**. Pages: `/app/` (clock in/out, notification setup, personal hours), `/app/report/ore/` (staff-only
-hours report with Chart.js charts + CSV export via `?formato=csv`).
+**Telegram Mini App**. Pages: `/app/` (clock in/out, notification setup, personal hours), `/app/report/ore/` (hours report,
+requires the `servizio.view_report_ore` permission; Chart.js charts + CSV export via `?formato=csv`).
 - Auth: unauthenticated requests get `gate.html`. Inside Telegram it POSTs the signed
   `initData` to `/app/auth/telegram/` (validated in `telegram_auth.py`, HMAC with the bot
   token) and logs in the linked `Volontario.user`; in a browser it redirects to the homepage.
 - Use the `webapp_view` decorator for new pages (login gate + iframe-embeddable for
-  Telegram Web); add `staff_required` for admin-only pages.
+  Telegram Web); add `permission_required(<perm>)` to restrict a page (shows the app's
+  403 page). The hours report needs `servizio.view_report_ore` (custom permission on
+  `Timbratura`, assigned to users or groups in the admin; superusers have it implicitly).
 - Theme: CSS tokens in `static/webapp/app.css`; inside Telegram `app.js` adds `.tg` to
   `<html>` and the tokens follow the client's `--tg-theme-*` colors.
 - Aggregations live in `reports.py` (hours computed in Python; a `Timbratura` counts in the
