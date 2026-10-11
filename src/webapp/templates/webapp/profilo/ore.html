@@ -1,0 +1,39 @@
+{% extends "webapp/profilo/base.html" %}
+{% load humanize_ore %}
+{% block sezione %}
+<div class="card-head">
+    <h1>Ore</h1>
+    {% if anni|length > 1 %}
+    <form method="get" class="range">
+        <label for="anno" class="muted">Anno</label>
+        <select id="anno" name="anno" onchange="this.form.submit()">
+            {% for a in anni %}<option value="{{ a }}"{% if a == anno %} selected{% endif %}>{{ a }}</option>{% endfor %}
+        </select>
+        <noscript><button class="btn secondary" type="submit">Vai</button></noscript>
+    </form>
+    {% endif %}
+</div>
+<p class="lead">Totale {{ anno }}: <strong>{{ minuti_anno|minuti_ore }}</strong></p>
+
+{% for m in mesi %}
+<section class="card">
+    <div class="card-head">
+        <h2>{{ m.data|date:"F Y"|capfirst }}</h2>
+        <strong>{{ m.minuti|minuti_ore }}</strong>
+    </div>
+    <ul class="list">
+        {% for t in m.voci %}
+        <li>
+            <div>
+                <div>{{ t.clock_in|date:"D j" }}, {{ t.clock_in|time:"H:i" }}–{% if t.clock_out %}{{ t.clock_out|time:"H:i" }}{% else %}…{% endif %}</div>
+                <div class="muted">{% if t.fkservizio %}{{ t.fkservizio.nome }}{% elif t.fkscheduled_task %}{{ t.fkscheduled_task.nome }}{% else %}Attività generica{% endif %}</div>
+            </div>
+            <div class="nowrap">{% if t.duration is not None %}{{ t.duration|minuti_ore }}{% else %}<span class="badge">in corso</span>{% endif %}</div>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% empty %}
+<section class="card"><p class="empty">Nessuna registrazione nel {{ anno }}.</p></section>
+{% endfor %}
+{% endblock %}

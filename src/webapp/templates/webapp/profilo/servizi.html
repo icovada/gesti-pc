@@ -1,0 +1,42 @@
+{% extends "webapp/profilo/base.html" %}
+{% load humanize_ore %}
+{% block sezione %}
+<h1>Servizi</h1>
+<p class="lead">I servizi a cui hai risposto al sondaggio di disponibilità.</p>
+<section class="card">
+    <h2>Prossimi</h2>
+    {% if prossimi %}
+    <ul class="list">
+        {% for r in prossimi %}
+        <li>
+            <div>
+                <div>{{ r.fkservizio.nome }}</div>
+                <div class="muted">{{ r.fkservizio.data_ora|date:"D j M, H:i" }}{% if r.fkservizio.data_ora_fine %}–{{ r.fkservizio.data_ora_fine|time:"H:i" }}{% endif %}{% if r.fkservizio.type %} · {{ r.fkservizio.type.nome }}{% endif %}</div>
+            </div>
+            <div>{% include "webapp/profilo/_risposta.html" %}</div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Nessun servizio in programma.</p>
+    {% endif %}
+</section>
+<section class="card">
+    <h2>Passati</h2>
+    {% if passati %}
+    <ul class="list">
+        {% for r in passati %}
+        <li>
+            <div>
+                <div>{{ r.fkservizio.nome }}</div>
+                <div class="muted">{{ r.fkservizio.data_ora|date:"j M Y" }}{% if r.fkservizio.type %} · {{ r.fkservizio.type.nome }}{% endif %}</div>
+            </div>
+            <div class="nowrap">{% if r.minuti %}{{ r.minuti|minuti_ore }}{% else %}{% include "webapp/profilo/_risposta.html" %}{% endif %}</div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Nessun servizio passato.</p>
+    {% endif %}
+</section>
+{% endblock %}

@@ -127,7 +127,10 @@ Routes: `/`, `/admin/`, `/app/`, `/login/`, `/auth/telegram/callback/`, `/auth/l
 ## Web app (`src/webapp/`)
 
 Server-rendered Django templates, mobile-first, usable both in a browser and as a
-**Telegram Mini App**. Pages: `/app/` (clock in/out, notification setup, personal hours), `/app/report/ore/` (hours report,
+**Telegram Mini App**. Pages: `/app/` (clock in/out, notification setup, personal hours), `/app/profilo/<sezione>/`
+(the volunteer's own data, one page per section with a side menu that becomes a scrollable
+tab bar on phones: `dati`, `dotazioni`, `formazione`, `servizi`, `ore`; see `profilo.py`, add a
+section to `SEZIONI` + `_LOADERS` + a template in `templates/webapp/profilo/`), `/app/report/ore/` (hours report,
 requires the `servizio.view_report_ore` permission; Chart.js charts + CSV export via `?formato=csv`).
 - Auth: unauthenticated requests get `gate.html`. Inside Telegram it POSTs the signed
   `initData` to `/app/auth/telegram/` (validated in `telegram_auth.py`, HMAC with the bot

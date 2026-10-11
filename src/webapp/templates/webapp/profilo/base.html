@@ -1,0 +1,38 @@
+{% extends "webapp/base.html" %}
+{% block title %}{% for slug, label, icon in sezioni %}{% if slug == sezione %}{{ label }}{% endif %}{% endfor %} — GestiPC{% endblock %}
+{% block body_attrs %} data-back="{% url 'webapp:home' %}"{% endblock %}
+{% block content %}
+<div class="profilo">
+    <aside class="side-menu" aria-label="Sezioni del profilo">
+        {% if volontario %}
+        <div class="side-head">
+            <div class="avatar" aria-hidden="true">{{ volontario.nome|slice:":1" }}{{ volontario.cognome|slice:":1" }}</div>
+            <div>
+                <div class="side-name">{{ volontario.nome }} {{ volontario.cognome }}</div>
+                <div class="muted">{{ volontario.fkorganizzazione.name|default:"" }}</div>
+            </div>
+        </div>
+        {% endif %}
+        <nav>
+            {% for slug, label, icon in sezioni %}
+            <a href="{% url 'webapp:profilo_sezione' slug %}"{% if slug == sezione %} aria-current="page"{% endif %}>
+                <span class="side-icon" aria-hidden="true">{{ icon }}</span>{{ label }}
+            </a>
+            {% endfor %}
+        </nav>
+    </aside>
+    <section class="profilo-content">
+        {% if volontario %}
+        {% block sezione %}{% endblock %}
+        {% else %}
+        <div class="card"><p class="empty">Il tuo utente non è associato a un volontario.</p></div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+    // Sul telefono il menu è una barra scorrevole: porta in vista la scheda attiva.
+    document.querySelector(".side-menu [aria-current]")?.scrollIntoView({ block: "nearest", inline: "center" });
+</script>
+{% endblock %}

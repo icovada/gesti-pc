@@ -1,0 +1,28 @@
+{% extends "webapp/profilo/base.html" %}
+{% block sezione %}
+<h1>Dati personali</h1>
+<p class="lead">Per correggere un dato rivolgiti a un responsabile.</p>
+<section class="card">
+    <dl class="fields">
+        <dt>Nome</dt><dd>{{ volontario.nome }}</dd>
+        <dt>Cognome</dt><dd>{{ volontario.cognome }}</dd>
+        <dt>Codice fiscale</dt><dd class="mono">{{ volontario.codice_fiscale }}</dd>
+        {% if nascita %}
+        <dt>Data di nascita</dt><dd>{{ nascita.data|date:"j F Y" }}</dd>
+        <dt>Luogo di nascita</dt><dd>{{ nascita.luogo }}</dd>
+        {% endif %}
+        <dt>Organizzazione</dt><dd>{{ volontario.fkorganizzazione.name|default:"—" }}</dd>
+    </dl>
+</section>
+<section class="card">
+    <h2>Telegram</h2>
+    {% if telegram_user %}
+    <dl class="fields">
+        <dt>Account</dt><dd>{% if telegram_user.username %}@{{ telegram_user.username }}{% else %}{{ telegram_user.first_name|default:"" }} {{ telegram_user.last_name|default:"" }}{% endif %}</dd>
+        <dt>Collegato dal</dt><dd>{{ telegram_user.created_at|date:"j F Y" }}</dd>
+    </dl>
+    {% else %}
+    <p class="empty">Nessun account Telegram collegato. Scrivi /start al bot per collegarlo.</p>
+    {% endif %}
+</section>
+{% endblock %}

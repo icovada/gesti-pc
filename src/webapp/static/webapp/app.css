@@ -198,3 +198,58 @@ tbody tr:last-child td { border-bottom: 0; }
 .landing .btn.big { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .btn.tg-login { background: #2aabee; color: #fff; }
 .landing-hint { font-size: 13px; margin-top: 14px; }
+
+/* --- Profilo: menu laterale + sezioni --- */
+.profilo { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 24px; align-items: start; }
+.side-menu {
+  position: sticky; top: 72px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px;
+}
+:root.tg .side-menu { border-color: transparent; }
+.side-head { display: flex; align-items: center; gap: 10px; padding: 4px 6px 12px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.side-name { font-weight: 600; }
+.side-head .muted { font-size: 13px; }
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--accent-text); font-weight: 700;
+}
+.side-menu nav { display: flex; flex-direction: column; gap: 2px; }
+.side-menu nav a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 8px; text-decoration: none; color: var(--text-2);
+}
+.side-menu nav a:hover { background: var(--surface-2); }
+.side-menu nav a[aria-current="page"] { background: var(--surface-2); color: var(--text); font-weight: 600; }
+.side-icon { width: 20px; text-align: center; }
+.profilo-content { min-width: 0; }
+.profilo-content h1 { margin-top: 0; }
+
+.fields { display: grid; grid-template-columns: max-content 1fr; gap: 10px 20px; margin: 0; }
+.fields dt { color: var(--text-2); }
+.fields dd { margin: 0; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; }
+.nowrap { white-space: nowrap; }
+.count { font-size: 13px; font-weight: 500; color: var(--text-3); margin-left: 4px; }
+.badge.ok { background: color-mix(in srgb, var(--series-3) 18%, transparent); color: var(--text); }
+.range select {
+  font: inherit; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text);
+}
+
+/* Telefono: il menu laterale diventa una barra di schede scorrevole. */
+@media (max-width: 760px) {
+  .profilo { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .side-menu { min-width: 0; position: static; padding: 0; background: none; border: 0; }
+  .side-head { display: none; }
+  .side-menu nav { flex-direction: row; overflow-x: auto; scrollbar-width: none; gap: 6px; }
+  .side-menu nav a {
+    flex: none; padding: 7px 12px; border-radius: 999px; font-size: 14px;
+    background: var(--surface); border: 1px solid var(--border);
+  }
+  .side-menu nav a[aria-current="page"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .side-icon { width: auto; }
+  .fields { grid-template-columns: 1fr; gap: 2px; }
+  .fields dd { margin-bottom: 10px; }
+}

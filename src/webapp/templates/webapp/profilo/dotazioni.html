@@ -1,0 +1,39 @@
+{% extends "webapp/profilo/base.html" %}
+{% block sezione %}
+<h1>Dotazioni</h1>
+<p class="lead">L'equipaggiamento che ti è stato consegnato.</p>
+<section class="card">
+    <h2>In uso <span class="count">{{ attive|length }}</span></h2>
+    {% if attive %}
+    <ul class="list">
+        {% for d in attive %}
+        <li>
+            <div>
+                <div>{{ d.tipo.nome }}{% if d.taglia %} <span class="badge">Taglia {{ d.taglia }}</span>{% endif %}</div>
+                {% if d.note %}<div class="muted">{{ d.note }}</div>{% endif %}
+            </div>
+            <div class="muted nowrap">dal {{ d.data_assegnazione|date:"j M Y" }}</div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Nessuna dotazione assegnata.</p>
+    {% endif %}
+</section>
+{% if restituite %}
+<section class="card">
+    <h2>Restituite <span class="count">{{ restituite|length }}</span></h2>
+    <ul class="list">
+        {% for d in restituite %}
+        <li>
+            <div>
+                <div>{{ d.tipo.nome }}{% if d.taglia %} <span class="badge">Taglia {{ d.taglia }}</span>{% endif %}</div>
+                {% if d.note %}<div class="muted">{{ d.note }}</div>{% endif %}
+            </div>
+            <div class="muted nowrap">{{ d.data_assegnazione|date:"j M Y" }} – {{ d.data_restituzione|date:"j M Y" }}</div>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+{% endblock %}
