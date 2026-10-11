@@ -6,7 +6,7 @@
     <div class="card">
         <h1>GestiPC</h1>
         <p id="gate-msg" class="lead">Accesso in corso…</p>
-        <a id="gate-login" class="btn" href="{% url 'web_login' %}?next={{ request.get_full_path|urlencode }}" hidden>Accedi</a>
+        <a id="gate-login" class="btn" href="{% url 'landing' %}?next={{ request.get_full_path|urlencode }}" hidden>Accedi</a>
     </div>
 </div>
 {% endblock %}

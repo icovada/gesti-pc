@@ -1,23 +1,21 @@
-import asyncio
 import logging
 
-from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import login
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.http import HttpResponse
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_GET, require_http_methods
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from django.views.decorators.http import require_GET
 
-from volontario.models import Volontario
-
-from .models import LoginToken, TelegramUser, WebLoginRequest
+from . import oidc
+from .models import LoginToken, TelegramUser
 
 logger = logging.getLogger(__name__)
 
 LOGIN_NEXT_SESSION_KEY = "login_next"
+OIDC_SESSION_KEY = "telegram_oidc"
 
 
 def _remember_next(request) -> None:
@@ -37,6 +35,11 @@ def _post_login_url(request) -> str:
     Va letto prima di login(), che rigenera la sessione mantenendone i dati.
     """
     return request.session.pop(LOGIN_NEXT_SESSION_KEY, None) or reverse("webapp:home")
+
+
+def _login_failed(request, message: str):
+    messages.error(request, message)
+    return redirect("landing")
 
 
 def token_login(request, token: str):
@@ -75,146 +78,58 @@ def token_login(request, token: str):
     return redirect(reverse("webapp:home"))
 
 
-async def _send_login_approval_message(
-    chat_id: int, volontario: Volontario, token: str
-) -> int | None:
-    """Send login approval message with inline keyboard. Returns message_id."""
-    bot_token = getattr(settings, "TELEGRAM_BOT_TOKEN", None)
-    if not bot_token:
-        logger.warning("TELEGRAM_BOT_TOKEN not configured")
-        return None
+@require_GET
+def telegram_login(request):
+    """Avvia il login con Telegram (OpenID Connect): rimanda a oauth.telegram.org."""
+    if not oidc.is_configured():
+        return _login_failed(request, "Il login con Telegram non è configurato.")
 
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "✅ Approva", callback_data=f"web_login:approve:{token}"
-                ),
-                InlineKeyboardButton(
-                    "❌ Rifiuta", callback_data=f"web_login:deny:{token}"
-                ),
-            ]
-        ]
-    )
-
-    bot = Bot(token=bot_token)
-    async with bot:
-        message = await bot.send_message(
-            chat_id=chat_id,
-            text=(
-                f"🔐 *Richiesta di accesso web*\n\n"
-                f"Qualcuno sta cercando di accedere come:\n"
-                f"*{volontario.nome} {volontario.cognome}*\n\n"
-                f"Se sei tu, premi Approva. Altrimenti premi Rifiuta."
-            ),
-            parse_mode="Markdown",
-            reply_markup=keyboard,
-        )
-    return message.message_id
-
-
-@require_http_methods(["GET", "POST"])
-def web_login(request):
-    """Handle web login via codice fiscale."""
-    error = None
-    codice_fiscale = ""
-    if request.method == "GET":
-        _remember_next(request)
-
-    if request.method == "POST":
-        codice_fiscale = request.POST.get("codice_fiscale", "").strip().upper()
-
-        if not codice_fiscale:
-            error = "Inserisci il codice fiscale."
-        else:
-            try:
-                volontario = Volontario.objects.get(codice_fiscale=codice_fiscale)
-            except Volontario.DoesNotExist:
-                error = "Codice fiscale non trovato. Verifica di essere registrato."
-            else:
-                # Check if volontario has a linked TelegramUser
-                try:
-                    telegram_user = volontario.telegram_user
-                except TelegramUser.DoesNotExist:
-                    error = "Account Telegram non collegato. Usa il bot per collegare il tuo account."
-                else:
-                    # Create a web login request
-                    login_request = WebLoginRequest.objects.create(
-                        volontario=volontario,
-                        telegram_user=telegram_user,
-                    )
-
-                    # Send Telegram message with approval buttons
-                    message_id = asyncio.run(
-                        _send_login_approval_message(
-                            telegram_user.telegram_id,
-                            volontario,
-                            login_request.token,
-                        )
-                    )
-
-                    if message_id:
-                        login_request.telegram_message_id = message_id
-                        login_request.save(update_fields=["telegram_message_id"])
-
-                        return render(
-                            request,
-                            "tg_bot/web_login_pending.html",
-                            {
-                                "volontario": volontario,
-                                "token": login_request.token,
-                            },
-                        )
-                    else:
-                        login_request.delete()
-                        error = "Errore nell'invio del messaggio Telegram. Riprova."
-
-    return render(
-        request,
-        "tg_bot/web_login.html",
-        {
-            "error": error,
-            "codice_fiscale": codice_fiscale,
-        },
-    )
+    _remember_next(request)
+    login_state = oidc.new_login_state()
+    try:
+        url = oidc.authorization_url(login_state)
+    except Exception:
+        logger.exception("Telegram OIDC discovery failed")
+        return _login_failed(request, "Telegram non è raggiungibile. Riprova.")
+    request.session[OIDC_SESSION_KEY] = login_state
+    return redirect(url)
 
 
 @require_GET
-def web_login_status(request, token: str):
-    """Check status of a web login request (polled by frontend)."""
+def telegram_callback(request):
+    """Ritorno da oauth.telegram.org: verifica l'identità e apre la sessione."""
+    login_state = request.session.pop(OIDC_SESSION_KEY, None)
+    if request.GET.get("error"):
+        return _login_failed(request, "Accesso annullato.")
+    if not login_state or request.GET.get("state") != login_state["state"]:
+        return _login_failed(request, "Richiesta di accesso scaduta. Riprova.")
+
     try:
-        login_request = WebLoginRequest.objects.select_related("volontario__user").get(
-            token=token
+        id_token = oidc.exchange_code(
+            request.GET.get("code", ""), login_state["verifier"]
         )
-    except WebLoginRequest.DoesNotExist:
-        return JsonResponse({"status": "not_found"}, status=404)
+        claims = oidc.verify_id_token(id_token, login_state["nonce"])
+    except oidc.OIDCError as e:
+        logger.warning("Telegram OIDC login failed: %s", e.__cause__ or e)
+        return _login_failed(request, str(e))
 
-    # Check if expired
-    if (
-        login_request.status == WebLoginRequest.Status.PENDING
-        and not login_request.is_pending
-    ):
-        login_request.status = WebLoginRequest.Status.EXPIRED
-        login_request.save(update_fields=["status"])
+    tg_user = (
+        TelegramUser.objects.select_related("volontario__user")
+        .filter(telegram_id=claims["id"])
+        .first()
+    )
+    volontario = tg_user.volontario if tg_user else None
+    if volontario is None:
+        return _login_failed(
+            request,
+            "Il tuo account Telegram non è collegato a un volontario. "
+            "Scrivi /start al bot per collegarlo, poi riprova.",
+        )
+    if volontario.user is None or not volontario.user.is_active:
+        return _login_failed(
+            request, "Account non abilitato. Contatta un amministratore."
+        )
 
-    if login_request.status == WebLoginRequest.Status.APPROVED:
-        # Log the user in
-        volontario = login_request.volontario
-        if volontario.user:
-            redirect_url = _post_login_url(request)
-            login(request, volontario.user)
-            return JsonResponse(
-                {
-                    "status": "approved",
-                    "redirect_url": redirect_url,
-                }
-            )
-        else:
-            return JsonResponse(
-                {
-                    "status": "error",
-                    "message": "Account non configurato correttamente.",
-                }
-            )
-
-    return JsonResponse({"status": login_request.status})
+    next_url = _post_login_url(request)
+    login(request, volontario.user)
+    return redirect(next_url)

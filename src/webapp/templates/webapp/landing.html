@@ -1,0 +1,20 @@
+{% extends "webapp/base.html" %}
+{% load static %}
+{% block header %}{% endblock %}
+{% block content %}
+<div class="landing">
+    <img class="landing-logo" src="{% static 'webapp/icons/icon-512.png' %}" alt="" width="112" height="112">
+    <h1>GestiPC</h1>
+    <p class="lead">Servizi, turni e ore dei volontari</p>
+
+    {% if user.is_authenticated %}
+    <a class="btn big" href="{% url 'webapp:home' %}">Apri GestiPC</a>
+    {% else %}
+    <a class="btn big tg-login" href="{{ login_url }}">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M9.04 15.6 8.9 19.5c.4 0 .58-.17.8-.38l1.92-1.84 3.98 2.92c.73.4 1.25.19 1.44-.68l2.6-12.24c.24-1.1-.4-1.53-1.12-1.27L3.24 10.1c-1.04.4-1.03.98-.18 1.25l3.9 1.21 9.05-5.7c.43-.28.82-.13.5.15"/></svg>
+        Accedi con Telegram
+    </a>
+    <p class="landing-hint muted">Devi aver collegato il tuo account scrivendo <strong>/start</strong> al bot.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -185,3 +185,16 @@ tbody tr:last-child td { border-bottom: 0; }
 .steps { margin: 8px 0 0; padding-left: 20px; }
 .steps li { margin: 4px 0; }
 #notifiche p { margin: 0 0 12px; }
+
+/* --- Pagina iniziale --- */
+.landing {
+  min-height: 80vh; max-width: 360px; margin: 0 auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+}
+.landing-logo { border-radius: 26px; margin-bottom: 16px; }
+.landing h1 { font-size: 30px; margin: 0; }
+.landing .lead { margin: 4px 0 28px; }
+.landing .btn.big { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.btn.tg-login { background: #2aabee; color: #fff; }
+.landing-hint { font-size: 13px; margin-top: 14px; }

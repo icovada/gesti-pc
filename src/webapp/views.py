@@ -2,6 +2,7 @@ import csv
 import json
 import logging
 from datetime import date
+from urllib.parse import urlencode
 from functools import wraps
 
 from django.conf import settings
@@ -11,6 +12,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.templatetags.static import static
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
@@ -107,7 +109,17 @@ def telegram_auth(request):
 @require_POST
 def logout_view(request):
     logout(request)
-    return redirect("web_login")
+    return redirect("landing")
+
+
+@require_GET
+def landing(request):
+    """Pagina iniziale pubblica: logo e pulsante "Accedi con Telegram"."""
+    next_url = request.GET.get("next", "")
+    login_url = reverse("login")
+    if next_url:
+        login_url += "?" + urlencode({"next": next_url})
+    return render(request, "webapp/landing.html", {"login_url": login_url})
 
 
 @webapp_view
