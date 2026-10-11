@@ -59,7 +59,7 @@ class PresenzeTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         entry = Timbratura.objects.get()
-        self.assertEqual(str(entry.fkvolontario_id), VALID_CF)
+        self.assertEqual(entry.fkvolontario, self.mario)
         self.assertEqual(entry.fkservizio, self.servizio)
         self.assertEqual(entry.duration, 180)
         self.assertTrue(entry.inserita_manualmente)

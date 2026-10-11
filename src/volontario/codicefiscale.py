@@ -16,7 +16,7 @@ class CodiceFiscale:
     birth_province: str
 
     def __init__(self, cf: str):
-        self.cf = cf
+        self.cf = cf.strip().upper()
         decoded = codicefiscale.decode(self.cf)
         self.sex = decoded["gender"]
         self.birth_date = decoded["birthdate"]
@@ -31,3 +31,17 @@ class CodiceFiscale:
 
     def __len__(self):
         return 16
+
+    # Uguaglianza per valore: Django confronta e indicizza le istanze di modello
+    # (es. Volontario) tramite la chiave primaria, che è un CodiceFiscale.
+    # Vale anche contro la stringa del codice (le istanze non ancora salvate
+    # hanno la chiave come str); l'hash coincide con quello della stringa.
+    def __eq__(self, other):
+        if isinstance(other, CodiceFiscale):
+            return self.cf == other.cf
+        if isinstance(other, str):
+            return self.cf == other
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self.cf)
