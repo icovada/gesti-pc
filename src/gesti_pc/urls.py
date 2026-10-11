@@ -17,15 +17,15 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
-from django.views.generic import RedirectView
 
-from tg_bot.views import token_login, web_login, web_login_status
+from tg_bot.views import telegram_callback, telegram_login, token_login
+from webapp.views import landing
 
 urlpatterns = [
-    path("", RedirectView.as_view(pattern_name="webapp:home"), name="root"),
+    path("", landing, name="landing"),
     path("admin/", admin.site.urls),
     path("app/", include("webapp.urls")),
     path("auth/login/<str:token>/", token_login, name="token_login"),
-    path("login/", web_login, name="web_login"),
-    path("login/status/<str:token>/", web_login_status, name="web_login_status"),
+    path("login/", telegram_login, name="login"),
+    path("auth/telegram/callback/", telegram_callback, name="telegram_callback"),
 ]

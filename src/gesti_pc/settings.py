@@ -59,6 +59,8 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "gesti_pc.urls"
 
+LOGIN_URL = "landing"
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -133,6 +135,12 @@ TELEGRAM_BOT_TOKEN = os.getenv(
 SITE_URL = os.getenv(
     "SITE_URL", "http://localhost:8000"
 )  # Set to your domain in production
+
+# Login con Telegram (OpenID Connect). Il client secret si ottiene da @BotFather;
+# il client ID è l'ID numerico del bot (di default ricavato da TELEGRAM_BOT_TOKEN).
+# URL di redirect da registrare: {SITE_URL}/auth/telegram/callback/
+TELEGRAM_OIDC_CLIENT_ID = os.getenv("TELEGRAM_OIDC_CLIENT_ID", "")
+TELEGRAM_OIDC_CLIENT_SECRET = os.getenv("TELEGRAM_OIDC_CLIENT_SECRET", "")
 
 # Telegram group chat ID for sending surveys
 TELEGRAM_SURVEY_CHAT_ID = os.getenv(

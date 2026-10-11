@@ -37,7 +37,8 @@ src/
 ├── servizio/          # Services/events, scheduled tasks, checklists, time tracking
 ├── tg_bot/            # Telegram bot — primary user interface
 │   ├── bot.py         # Core bot logic (~1800 lines): handlers + scheduled jobs
-│   ├── models.py      # TelegramUser, LoginToken, WebLoginRequest
+│   ├── models.py      # TelegramUser, LoginToken, AllertaMeteoStato
+│   ├── oidc.py        # "Log in with Telegram" (OpenID Connect) client
 │   ├── views.py       # Web login flow
 │   └── management/commands/runbot.py
 ├── magazzino/         # Equipment/gear (dotazioni) management
@@ -66,7 +67,6 @@ src/
 **tg_bot** (`src/tg_bot/models.py`)
 - `TelegramUser` — 1:1 link between Telegram ID and `Volontario`; tracks linking status
 - `LoginToken` — one-time web-login token (10-min expiry)
-- `WebLoginRequest` — web login pending Telegram approval (5-min expiry)
 - `AllertaMeteoStato` — last notified AllertaLOM alert level per (comune, category); used
   to de-duplicate weather-alert notifications
 
@@ -96,8 +96,7 @@ uv run src/manage.py runbot     # polling mode
 `/agenda` (next 14 days), `/login` (one-time web-login token), `/app` (opens the web app
 as a Mini App; private chats only).
 
-**Callback handlers:** poll answers → `VolontarioServizioMap`; web-login approve/deny;
-clock-in/clock-out buttons; task-start and checklist-toggle (broadcasts updates to all
+**Callback handlers:** poll answers → `VolontarioServizioMap`; clock-in/clock-out buttons; task-start and checklist-toggle (broadcasts updates to all
 task volunteers).
 
 **Scheduled jobs (job_queue):** service reminders (~30 min before, with clock-in button),
@@ -113,11 +112,17 @@ last-notified levels are stored in `AllertaMeteoStato` to avoid duplicate messag
 
 ## Web access
 
-Web login is dual-path (`src/tg_bot/views.py`): a one-time token link from `/login` in the
-bot, or a web form (`/login/`) that creates a `WebLoginRequest` approved from Telegram.
-Both land on the web app (or the `?next=` page given to `/login/`).
-Routes: `/` (→ `/app/`), `/admin/`, `/app/`, `/auth/login/<token>/`, `/login/`,
-`/login/status/<token>/`.
+`/` is a public homepage (logo + "Accedi con Telegram"). Web login (`src/tg_bot/views.py`):
+- **Log in with Telegram (OpenID Connect)**: `/login/` → `oauth.telegram.org` (authorization
+  code + PKCE) → `/auth/telegram/callback/`. `tg_bot/oidc.py` reads the discovery document,
+  exchanges the code and verifies the `id_token` against Telegram's JWKS (iss, aud = bot ID,
+  exp, nonce); the `id` claim (Telegram user ID) is matched to `TelegramUser`. Unlinked
+  accounts are told to `/start` the bot. Needs `TELEGRAM_OIDC_CLIENT_SECRET` from @BotFather
+  and the redirect URL `{SITE_URL}/auth/telegram/callback/` registered there.
+- One-time token link from `/login` in the bot (`/auth/login/<token>/`).
+- Inside the Telegram Mini App, `initData` login (see below).
+All land on the web app (or the `?next=` page given to `/login/`).
+Routes: `/`, `/admin/`, `/app/`, `/login/`, `/auth/telegram/callback/`, `/auth/login/<token>/`.
 
 ## Web app (`src/webapp/`)
 
@@ -126,7 +131,7 @@ Server-rendered Django templates, mobile-first, usable both in a browser and as 
 hours report with Chart.js charts + CSV export via `?formato=csv`).
 - Auth: unauthenticated requests get `gate.html`. Inside Telegram it POSTs the signed
   `initData` to `/app/auth/telegram/` (validated in `telegram_auth.py`, HMAC with the bot
-  token) and logs in the linked `Volontario.user`; in a browser it redirects to `/login/`.
+  token) and logs in the linked `Volontario.user`; in a browser it redirects to the homepage.
 - Use the `webapp_view` decorator for new pages (login gate + iframe-embeddable for
   Telegram Web); add `staff_required` for admin-only pages.
 - Theme: CSS tokens in `static/webapp/app.css`; inside Telegram `app.js` adds `.tg` to
@@ -155,6 +160,8 @@ hours report with Chart.js charts + CSV export via `?formato=csv`).
 | `TELEGRAM_SURVEY_THREAD_ID` | Forum topic ID (optional) |
 | `TELEGRAM_LOCKED_THREAD_IDS` | Comma-separated topic IDs kept closed |
 | `TELEGRAM_NO_MESSAGE_THREAD_IDS` | Comma-separated topic IDs where only the bot may post |
+| `TELEGRAM_OIDC_CLIENT_SECRET` | Client secret for "Log in with Telegram", from @BotFather (required for web login) |
+| `TELEGRAM_OIDC_CLIENT_ID` | Optional; defaults to the bot's numeric ID (prefix of `TELEGRAM_BOT_TOKEN`) |
 | `SITE_URL` | Base URL for login links and the Mini App (default `http://localhost:8000`); must be HTTPS for the Mini App |
 | `ALLERTALOM_COMUNE_ISTAT` | ISTAT code of the comune to monitor (default `108055`) |
 | `ALLERTALOM_MONITOR` | `cat:seconds` pairs, comma-separated (default `7:600,9:600,10:600,3:3600,8:3600`); empty disables the feature. Categories: 7=temporali, 9=idrogeologico, 10=idraulico, 8=vento forte, 2=neve, 3=incendi boschivi |
