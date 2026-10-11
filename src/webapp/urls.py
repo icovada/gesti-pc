@@ -7,6 +7,12 @@ app_name = "webapp"
 urlpatterns = [
     path("", views.home, name="home"),
     path("profilo/", profilo.profilo, name="profilo"),
+    path("profilo/ore/nuova/", profilo.presenza_nuova, name="presenza_nuova"),
+    path(
+        "profilo/ore/<uuid:pk>/modifica/",
+        profilo.presenza_modifica,
+        name="presenza_modifica",
+    ),
     path("profilo/<slug:sezione>/", profilo.profilo, name="profilo_sezione"),
     path("report/ore/", views.report_ore, name="report_ore"),
     path("auth/telegram/", views.telegram_auth, name="telegram_auth"),

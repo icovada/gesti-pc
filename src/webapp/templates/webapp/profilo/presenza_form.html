@@ -1,0 +1,50 @@
+{% extends "webapp/profilo/base.html" %}
+{% block sezione %}
+<h1>{% if entry %}Modifica presenza{% else %}Aggiungi presenza{% endif %}</h1>
+<p class="lead">
+    {% if entry %}
+    {% if entry.fkservizio %}{{ entry.fkservizio.nome }}{% elif entry.fkscheduled_task %}{{ entry.fkscheduled_task.nome }}{% else %}Attività generica{% endif %}
+    · le correzioni vengono segnalate ai responsabili.
+    {% else %}
+    Hai dimenticato di timbrare? Registra qui la tua presenza a un servizio.
+    {% endif %}
+</p>
+
+<form method="post" class="card form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="flash error" role="alert">{% for e in form.non_field_errors %}{{ e }} {% endfor %}</div>
+    {% endif %}
+    {% for field in form %}
+    <div class="field{% if field.errors %} has-error{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required %} <span class="muted">(facoltativo)</span>{% endif %}</label>
+        {{ field }}
+        {% for e in field.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="row">
+        <button class="btn" type="submit">{% if entry %}Salva modifiche{% else %}Aggiungi presenza{% endif %}</button>
+        <a class="btn link" href="{% url 'webapp:profilo_sezione' 'ore' %}">Annulla</a>
+    </div>
+</form>
+{{ orari_servizi|json_script:"orari-servizi" }}
+{% endblock %}
+{% block scripts %}
+{{ block.super }}
+<script>
+    // Scegliendo un servizio, propone gli orari del servizio se non già compilati.
+    (function () {
+        const orari = JSON.parse(document.getElementById("orari-servizi").textContent);
+        const servizio = document.getElementById("id_fkservizio");
+        if (!servizio) return;
+        servizio.addEventListener("change", () => {
+            const o = orari[servizio.value];
+            if (!o) return;
+            const entrata = document.getElementById("id_clock_in");
+            const uscita = document.getElementById("id_clock_out");
+            if (!entrata.value) entrata.value = o.inizio;
+            if (!uscita.value && o.fine) uscita.value = o.fine;
+        });
+    })();
+</script>
+{% endblock %}

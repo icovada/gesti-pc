@@ -13,7 +13,10 @@
     </form>
     {% endif %}
 </div>
-<p class="lead">Totale {{ anno }}: <strong>{{ minuti_anno|minuti_ore }}</strong></p>
+<div class="card-head">
+    <p class="lead">Totale {{ anno }}: <strong>{{ minuti_anno|minuti_ore }}</strong></p>
+    <a class="btn" href="{% url 'webapp:presenza_nuova' %}">+ Aggiungi presenza</a>
+</div>
 
 {% for m in mesi %}
 <section class="card">
@@ -26,9 +29,12 @@
         <li>
             <div>
                 <div>{{ t.clock_in|date:"D j" }}, {{ t.clock_in|time:"H:i" }}–{% if t.clock_out %}{{ t.clock_out|time:"H:i" }}{% else %}…{% endif %}</div>
-                <div class="muted">{% if t.fkservizio %}{{ t.fkservizio.nome }}{% elif t.fkscheduled_task %}{{ t.fkscheduled_task.nome }}{% else %}Attività generica{% endif %}</div>
+                <div class="muted">{% if t.fkservizio %}{{ t.fkservizio.nome }}{% elif t.fkscheduled_task %}{{ t.fkscheduled_task.nome }}{% else %}Attività generica{% endif %}{% if t.inserita_manualmente %} <span class="badge">inserita a mano</span>{% elif t.modificata_at %} <span class="badge">corretta</span>{% endif %}</div>
             </div>
-            <div class="nowrap">{% if t.duration is not None %}{{ t.duration|minuti_ore }}{% else %}<span class="badge">in corso</span>{% endif %}</div>
+            <div class="entry-side">
+                <span class="nowrap">{% if t.duration is not None %}{{ t.duration|minuti_ore }}{% else %}<span class="badge">in corso</span>{% endif %}</span>
+                {% if t.clock_in >= limite_modifica %}<a class="edit-link" href="{% url 'webapp:presenza_modifica' t.pk %}">Modifica</a>{% endif %}
+            </div>
         </li>
         {% endfor %}
     </ul>
