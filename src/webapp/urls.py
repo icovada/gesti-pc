@@ -18,6 +18,11 @@ urlpatterns = [
     path("auth/telegram/", views.telegram_auth, name="telegram_auth"),
     path("logout/", views.logout_view, name="logout"),
     path("timbra/", views.timbra, name="timbra"),
+    path(
+        "servizi/<uuid:pk>/termina/",
+        views.termina_servizio_view,
+        name="termina_servizio",
+    ),
     path("manifest.webmanifest", views.manifest, name="manifest"),
     path("sw.js", views.service_worker, name="service_worker"),
     path("push/subscribe/", views.push_subscribe, name="push_subscribe"),

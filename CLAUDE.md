@@ -136,7 +136,10 @@ section to `SEZIONI` + `_LOADERS` + a template in `templates/webapp/profilo/`),
 `/app/profilo/ore/nuova/` and `/app/profilo/ore/<pk>/modifica/` (volunteers add a forgotten
 presence — must be linked to a `Servizio` — or correct their own entries; rules in
 `webapp/forms.py`: last 60 days only, no future times, max 24h, no overlaps, times must fall
-near the chosen servizio), `/app/report/ore/` (hours report,
+near the chosen servizio), members of the `Coordinatore` group see the servizi with volunteers
+still clocked in on `/app/` and can terminate one (`/app/servizi/<pk>/termina/`, confirmation
+`<dialog>`): everyone is clocked out, the servizio ends now and each volunteer gets a Telegram
+message; `/app/report/ore/` (hours report,
 requires the `servizio.view_report_ore` permission; Chart.js charts, per-volunteer CSV via `?formato=csv`, every `Timbratura` of the period as Excel via `?formato=xlsx`).
 - Auth: unauthenticated requests get `gate.html`. Inside Telegram it POSTs the signed
   `initData` to `/app/auth/telegram/` (validated in `telegram_auth.py`, HMAC with the bot

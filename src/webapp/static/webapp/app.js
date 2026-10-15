@@ -1,3 +1,11 @@
+// Pulsanti che aprono una finestra di conferma (<dialog>).
+document.addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-open-dialog]");
+  if (!trigger) return;
+  const dialog = document.getElementById(trigger.dataset.openDialog);
+  if (dialog) dialog.showModal();
+});
+
 // Integrazione con Telegram Mini App: tema, pulsante "indietro", espansione.
 (function () {
   const tg = window.Telegram && window.Telegram.WebApp;

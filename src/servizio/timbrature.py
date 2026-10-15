@@ -6,7 +6,10 @@ from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
-from tg_bot.notify import invia_messaggio_entrata_background
+from tg_bot.notify import (
+    invia_messaggi_servizio_terminato_background,
+    invia_messaggio_entrata_background,
+)
 from volontario.models import Volontario
 
 from .models import Servizio, Timbratura
@@ -71,3 +74,38 @@ def registra_uscita(volontario: Volontario) -> Timbratura:
     aperta.clock_out = timezone.now()
     aperta.save(update_fields=["clock_out"])
     return aperta
+
+
+def turni_aperti_per_servizio() -> list[tuple[Servizio, list[Timbratura]]]:
+    """I servizi con volontari ancora in servizio, con le rispettive timbrature aperte."""
+    aperte = (
+        Timbratura.objects.filter(clock_out__isnull=True, fkservizio__isnull=False)
+        .select_related("fkservizio", "fkvolontario")
+        .order_by("fkservizio__data_ora", "fkvolontario__cognome", "fkvolontario__nome")
+    )
+    per_servizio: dict[Servizio, list[Timbratura]] = {}
+    for t in aperte:
+        per_servizio.setdefault(t.fkservizio, []).append(t)
+    return list(per_servizio.items())
+
+
+def termina_servizio(servizio: Servizio) -> list[Timbratura]:
+    """Termina il servizio adesso e registra l'uscita di chi è ancora in servizio."""
+    now = timezone.now()
+    with transaction.atomic():
+        aperte = list(
+            Timbratura.objects.filter(fkservizio=servizio, clock_out__isnull=True)
+        )
+        for t in aperte:
+            t.clock_out = now
+            t.save(update_fields=["clock_out"])
+        # Se era ancora in corso, finisce adesso: niente più entrate collegate né promemoria.
+        if servizio.data_ora <= now and (
+            servizio.data_ora_fine is None or servizio.data_ora_fine > now
+        ):
+            Servizio.objects.filter(pk=servizio.pk).update(
+                data_ora_fine=now, end_reminder_sent=True
+            )
+        pks = [t.pk for t in aperte]
+        transaction.on_commit(lambda: invia_messaggi_servizio_terminato_background(pks))
+    return aperte

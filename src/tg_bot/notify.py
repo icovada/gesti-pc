@@ -38,13 +38,21 @@ def testo_entrata(entry: Timbratura) -> str:
     return f"✅ Entrata registrata dall'app alle {ora}.\n\nBuon lavoro!"
 
 
-async def _send(chat_id: int, text: str) -> None:
+def testo_uscita_servizio_terminato(entry: Timbratura) -> str:
+    servizio = html.escape(entry.fkservizio.nome)
+    return (
+        f"🏁 Il servizio <b>{servizio}</b> è stato terminato da un coordinatore.\n\n"
+        f"Uscita registrata alle {timezone.localtime(entry.clock_out):%H:%M}."
+    )
+
+
+async def _send(chat_id: int, text: str, reply_markup=CLOCK_OUT_KEYBOARD) -> None:
     async with Bot(token=settings.TELEGRAM_BOT_TOKEN) as bot:
         await bot.send_message(
             chat_id=chat_id,
             text=text,
             parse_mode=ParseMode.HTML,
-            reply_markup=CLOCK_OUT_KEYBOARD,
+            reply_markup=reply_markup,
         )
 
 
@@ -69,6 +77,41 @@ def invia_messaggio_entrata_background(entry_pk) -> None:
     def run():
         try:
             invia_messaggio_entrata(entry_pk)
+        finally:
+            close_old_connections()
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+def invia_messaggi_servizio_terminato(entry_pks) -> None:
+    """Avvisa in chat privata chi è stato fatto uscire alla chiusura del servizio."""
+    entries = Timbratura.objects.select_related("fkservizio").filter(pk__in=entry_pks)
+    chat_ids = dict(
+        TelegramUser.objects.filter(
+            volontario_id__in=[e.fkvolontario_id for e in entries]
+        ).values_list("volontario_id", "telegram_id")
+    )
+    for entry in entries:
+        chat_id = chat_ids.get(entry.fkvolontario_id)
+        if chat_id is None:
+            continue
+        try:
+            asyncio.run(
+                _send(
+                    chat_id, testo_uscita_servizio_terminato(entry), reply_markup=None
+                )
+            )
+        except Exception:
+            logger.exception("Failed to send clock-out message to %s", chat_id)
+
+
+def invia_messaggi_servizio_terminato_background(entry_pks) -> None:
+    if not settings.TELEGRAM_BOT_TOKEN or not entry_pks:
+        return
+
+    def run():
+        try:
+            invia_messaggi_servizio_terminato(entry_pks)
         finally:
             close_old_connections()
 

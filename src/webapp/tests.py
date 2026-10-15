@@ -4,10 +4,11 @@ import json
 import time
 from datetime import date, datetime, timedelta
 from io import BytesIO
+from unittest.mock import patch
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -159,6 +160,73 @@ class AccessTests(WebappTestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[1][:3], (VALID_CF, "Rossi", "Mario"))
         self.assertEqual(rows[1][5], 2)
+
+
+@patch("servizio.timbrature.invia_messaggi_servizio_terminato_background")
+class TerminaServizioTests(WebappTestCase):
+    def setUp(self):
+        super().setUp()
+        now = timezone.now()
+        self.servizio = Servizio.objects.create(
+            nome="Sagra",
+            data_ora=now - timedelta(hours=3),
+            data_ora_fine=now + timedelta(hours=2),
+            send_message=False,
+        )
+        self.altro = Servizio.objects.create(
+            nome="Fiera", data_ora=now - timedelta(hours=1), send_message=False
+        )
+        luigi = Volontario.objects.create(
+            codice_fiscale=OTHER_CF, nome="Luigi", cognome="Verdi"
+        )
+        self.aperte = [
+            Timbratura.objects.create(
+                fkvolontario=vol,
+                fkservizio=self.servizio,
+                clock_in=now - timedelta(hours=2),
+            )
+            for vol in (self.volontario, luigi)
+        ]
+        self.altro_turno = Timbratura.objects.create(
+            fkvolontario=Volontario.objects.create(
+                codice_fiscale="BNCGNN80A01F205W", nome="Gianni", cognome="Bianchi"
+            ),
+            fkservizio=self.altro,
+            clock_in=now - timedelta(minutes=30),
+        )
+        self.url = reverse("webapp:termina_servizio", args=[self.servizio.pk])
+        self.client.force_login(self.user)
+
+    def make_coordinatore(self):
+        self.user.groups.add(Group.objects.create(name="Coordinatore"))
+
+    def test_coordinatore_sees_open_servizi_and_volunteers(self, notify):
+        self.make_coordinatore()
+        response = self.client.get(reverse("webapp:home"))
+        self.assertContains(response, "Termina servizio", count=2)
+        self.assertContains(response, "Luigi Verdi")
+        self.assertContains(response, "Gianni Bianchi")
+
+    def test_termina_servizio_clocks_out_its_volunteers(self, notify):
+        self.make_coordinatore()
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.url)
+        self.assertRedirects(response, reverse("webapp:home"))
+
+        for t in self.aperte:
+            t.refresh_from_db()
+            self.assertIsNotNone(t.clock_out)
+        self.altro_turno.refresh_from_db()
+        self.assertIsNone(self.altro_turno.clock_out)
+        self.servizio.refresh_from_db()
+        self.assertEqual(self.servizio.data_ora_fine, self.aperte[0].clock_out)
+        notify.assert_called_once_with([t.pk for t in self.aperte])
+
+    def test_volunteer_cannot_terminate(self, notify):
+        response = self.client.get(reverse("webapp:home"))
+        self.assertNotContains(response, "Termina servizio")
+        self.assertEqual(self.client.post(self.url).status_code, 403)
+        self.assertFalse(Timbratura.objects.filter(clock_out__isnull=False).exists())
 
 
 class HoursReportTests(TestCase):

@@ -1,20 +1,20 @@
 import csv
 import json
-from io import BytesIO
 import logging
 from datetime import date
-from urllib.parse import urlencode
 from functools import wraps
+from io import BytesIO
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
-from django.utils import timezone
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
@@ -22,11 +22,14 @@ from django.views.decorators.http import require_GET, require_POST
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
+from servizio.models import Servizio
 from servizio.timbrature import (
     TimbraturaError,
     registra_entrata,
     registra_uscita,
     servizio_in_corso,
+    termina_servizio,
+    turni_aperti_per_servizio,
 )
 from tg_bot.models import TelegramUser
 
@@ -79,6 +82,14 @@ def permission_required(perm: str):
         return wrapper
 
     return decorator
+
+
+# I membri di questo gruppo possono terminare i servizi in corso.
+GRUPPO_COORDINATORE = "Coordinatore"
+
+
+def is_coordinatore(user) -> bool:
+    return user.groups.filter(name=GRUPPO_COORDINATORE).exists()
 
 
 @require_POST
@@ -157,7 +168,24 @@ def home(request):
         context.update(personal_hours(volontario, timezone.localdate()))
         if context["turno_aperto"] is None:
             context["servizio_in_corso"] = servizio_in_corso()
+    if is_coordinatore(request.user):
+        context["servizi_aperti"] = turni_aperti_per_servizio()
     return render(request, "webapp/home.html", context)
+
+
+@require_POST
+@webapp_view
+def termina_servizio_view(request, pk):
+    if not is_coordinatore(request.user):
+        return render(request, "webapp/forbidden.html", status=403)
+    servizio = get_object_or_404(Servizio, pk=pk)
+    chiuse = termina_servizio(servizio)
+    messages.success(
+        request,
+        f"Servizio {servizio.nome} terminato: registrata l'uscita di "
+        f"{len(chiuse)} volontari.",
+    )
+    return redirect("webapp:home")
 
 
 def _shift_months(d: date, months: int) -> date:

@@ -23,6 +23,39 @@
     {% endif %}
 </section>
 
+{% if servizi_aperti %}
+<section class="card">
+    <h2>Servizi in corso</h2>
+    <ul class="list">
+        {% for servizio, turni in servizi_aperti %}
+        <li>
+            <div>
+                <div>{{ servizio.nome }}</div>
+                <div class="muted">{{ turni|length }} in servizio</div>
+            </div>
+            <button class="btn danger" type="button" data-open-dialog="termina-{{ servizio.pk }}">Termina servizio</button>
+            <dialog class="modal" id="termina-{{ servizio.pk }}">
+                <form method="post" action="{% url 'webapp:termina_servizio' servizio.pk %}">
+                    {% csrf_token %}
+                    <h2>Terminare {{ servizio.nome }}?</h2>
+                    <p>Verrà registrata adesso l'uscita di:</p>
+                    <ul class="list">
+                        {% for t in turni %}
+                        <li><span>{{ t.fkvolontario.nome }} {{ t.fkvolontario.cognome }}</span><span class="muted">dalle {{ t.clock_in|time:"H:i" }}</span></li>
+                        {% endfor %}
+                    </ul>
+                    <div class="row modal-actions">
+                        <button class="btn secondary" type="submit" formmethod="dialog" formnovalidate>Annulla</button>
+                        <button class="btn danger" type="submit">Termina e registra le uscite</button>
+                    </div>
+                </form>
+            </dialog>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
 {% if vapid_public_key %}
 <section class="card" id="notifiche" data-key="{{ vapid_public_key }}"
          data-subscribe="{% url 'webapp:push_subscribe' %}"
