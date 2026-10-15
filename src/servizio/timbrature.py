@@ -1,7 +1,9 @@
 """Logica di entrata/uscita condivisa tra web app e notifiche push (non il bot)."""
 
+from datetime import timedelta
+
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from tg_bot.notify import invia_messaggio_entrata_background
@@ -14,15 +16,26 @@ class TimbraturaError(Exception):
     """Operazione di timbratura non possibile; il messaggio è per l'utente."""
 
 
-def servizio_in_corso(now=None) -> Servizio | None:
-    """Il servizio iniziato più di recente e non ancora terminato, se esiste."""
+# Chi entra poco prima dell'inizio viene comunque collegato al servizio.
+ANTICIPO_ENTRATA = timedelta(hours=1)
+
+
+def servizi_in_corso(now=None) -> QuerySet[Servizio]:
+    """Servizi non ancora terminati e iniziati (o in partenza entro `ANTICIPO_ENTRATA`).
+
+    Il più recente viene prima.
+    """
     now = now or timezone.now()
     return (
-        Servizio.objects.filter(data_ora__lte=now)
+        Servizio.objects.filter(data_ora__lte=now + ANTICIPO_ENTRATA)
         .filter(Q(data_ora_fine__gte=now) | Q(data_ora_fine__isnull=True))
         .order_by("-data_ora")
-        .first()
     )
+
+
+def servizio_in_corso(now=None) -> Servizio | None:
+    """Il servizio a cui collegare un'entrata registrata adesso, se esiste."""
+    return servizi_in_corso(now).first()
 
 
 def turno_aperto(volontario: Volontario) -> Timbratura | None:

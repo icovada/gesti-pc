@@ -55,6 +55,21 @@ class TimbratureTests(VolontarioTestCase):
         entry = registra_entrata(self.volontario)
         self.assertEqual(entry.fkservizio, servizio)
 
+    def test_entrata_links_servizio_starting_within_an_hour(self):
+        cases = [(timedelta(minutes=2), True), (timedelta(minutes=90), False)]
+        for anticipo, collegata in cases:
+            with self.subTest(anticipo=anticipo):
+                servizio = Servizio.objects.create(
+                    nome="Serata",
+                    data_ora=timezone.now() + anticipo,
+                    data_ora_fine=timezone.now() + anticipo + timedelta(hours=3),
+                    send_message=False,
+                )
+                entry = registra_entrata(self.volontario)
+                self.assertEqual(entry.fkservizio, servizio if collegata else None)
+                Timbratura.objects.all().delete()
+                servizio.delete()
+
     def test_double_entrata_and_missing_uscita(self):
         with self.assertRaises(TimbraturaError):
             registra_uscita(self.volontario)

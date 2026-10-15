@@ -41,6 +41,7 @@ from servizio.models import (
     Timbratura,
     VolontarioServizioMap,
 )
+from servizio.timbrature import servizi_in_corso
 from volontario.models import Volontario
 
 User = get_user_model()
@@ -342,16 +343,8 @@ async def clock_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # Check if there is an active Servizio right now
-    now = timezone.now()
-    active_servizio = (
-        await Servizio.objects.filter(
-            data_ora__lte=now,
-        )
-        .filter(Q(data_ora_fine__gte=now) | Q(data_ora_fine__isnull=True))
-        .order_by("-data_ora")
-        .afirst()
-    )
+    # Check if there is an active (or about to start) Servizio right now
+    active_servizio = await servizi_in_corso().afirst()
 
     # Create new time entry, linked to the active servizio if any
     entry = await Timbratura.objects.acreate(
