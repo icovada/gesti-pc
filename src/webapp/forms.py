@@ -8,9 +8,25 @@ from servizio.models import Servizio, Timbratura
 
 # Oltre questo limite le presenze si correggono solo dall'admin.
 GIORNI_MODIFICABILI = 60
+# Durata massima di una presenza, salvo servizi più lunghi (vedi `durata_massima`).
 DURATA_MASSIMA = timedelta(hours=24)
 # Una presenza deve cadere attorno all'orario del servizio scelto.
 MARGINE_SERVIZIO = timedelta(hours=6)
+
+
+def finestra_servizio(servizio):
+    """Intervallo in cui può cadere una presenza per il servizio."""
+    inizio = servizio.data_ora - MARGINE_SERVIZIO
+    fine = (servizio.data_ora_fine or servizio.data_ora) + MARGINE_SERVIZIO
+    return inizio, fine
+
+
+def durata_massima(servizio):
+    """Un servizio su più giorni si può registrare con un'unica presenza."""
+    if servizio is None:
+        return DURATA_MASSIMA
+    inizio, fine = finestra_servizio(servizio)
+    return max(DURATA_MASSIMA, fine - inizio)
 
 
 def limite_modifica():
@@ -101,18 +117,19 @@ class PresenzaForm(forms.ModelForm):
                 f"{GIORNI_MODIFICABILI} giorni. Per quelle precedenti rivolgiti a "
                 "un responsabile."
             )
+        servizio = data.get("fkservizio")
         if clock_out is not None:
             if clock_out <= clock_in:
                 self.add_error("clock_out", "L'uscita deve essere dopo l'entrata.")
                 return data
-            if clock_out - clock_in > DURATA_MASSIMA:
-                self.add_error("clock_out", "Una presenza non può superare 24 ore.")
+            massimo = durata_massima(servizio or self.instance.fkservizio)
+            if clock_out - clock_in > massimo:
+                ore = int(massimo.total_seconds() // 3600)
+                self.add_error("clock_out", f"Questa presenza non può superare {ore} ore.")
                 return data
 
-        servizio = data.get("fkservizio")
         if servizio is not None:
-            inizio = servizio.data_ora - MARGINE_SERVIZIO
-            fine = (servizio.data_ora_fine or servizio.data_ora) + MARGINE_SERVIZIO
+            inizio, fine = finestra_servizio(servizio)
             if clock_in > fine or (clock_out or clock_in) < inizio:
                 iniziato = timezone.localtime(servizio.data_ora)
                 raise forms.ValidationError(

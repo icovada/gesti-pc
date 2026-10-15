@@ -114,6 +114,33 @@ class PresenzeTests(TestCase):
                 self.assertContains(response, error)
         self.assertFalse(Timbratura.objects.exists())
 
+    def test_multi_day_servizio_allows_longer_presence(self):
+        start = self.start - timedelta(days=3)
+        servizio = Servizio.objects.create(
+            nome="Campo",
+            data_ora=start,
+            data_ora_fine=start + timedelta(hours=56),
+            send_message=False,
+        )
+        response = self.post_nuova(start, start + timedelta(hours=56), servizio)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Timbratura.objects.get().duration, 56 * 60)
+
+    def test_multi_day_servizio_caps_presence_at_its_duration(self):
+        start = self.start - timedelta(days=3)
+        servizio = Servizio.objects.create(
+            nome="Campo",
+            data_ora=start,
+            data_ora_fine=start + timedelta(hours=56),
+            send_message=False,
+        )
+        # 56h of servizio + 6h margin on each side
+        response = self.post_nuova(
+            start - timedelta(hours=6), start + timedelta(hours=63), servizio
+        )
+        self.assertContains(response, "non può superare 68 ore")
+        self.assertFalse(Timbratura.objects.exists())
+
     def test_rejects_future_times(self):
         servizio = Servizio.objects.create(
             nome="Oggi",
