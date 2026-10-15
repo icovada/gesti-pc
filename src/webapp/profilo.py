@@ -20,10 +20,10 @@ from .views import webapp_view
 # (slug, etichetta, icona) nell'ordine del menu.
 SEZIONI = [
     ("dati", "Dati personali", "👤"),
+    ("ore", "Ore", "⏱️"),
+    ("servizi", "Servizi", "📅"),
     ("dotazioni", "Dotazioni", "🦺"),
     ("formazione", "Formazione", "🎓"),
-    ("servizi", "Servizi", "📅"),
-    ("ore", "Ore", "⏱️"),
 ]
 _SEZIONI = {slug for slug, _, _ in SEZIONI}
 
