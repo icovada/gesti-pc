@@ -86,7 +86,7 @@ class Servizio(models.Model):
         verbose_name_plural = "Servizi"
 
     def __str__(self) -> str:
-        return f"{self.nome} - {self.data_ora:%d/%m/%Y %H:%M}"
+        return f"{self.nome} - {timezone.localtime(self.data_ora):%d/%m/%Y %H:%M}"
 
 
 class ScheduledTask(models.Model):
@@ -111,7 +111,9 @@ class ScheduledTask(models.Model):
         ordering = ["deadline"]
 
     def __str__(self) -> str:
-        return f"{self.nome} - scadenza {self.deadline:%d/%m/%Y %H:%M}"
+        return (
+            f"{self.nome} - scadenza {timezone.localtime(self.deadline):%d/%m/%Y %H:%M}"
+        )
 
 
 class ChecklistItem(models.Model):
@@ -190,7 +192,7 @@ class Timbratura(models.Model):
 
     def __str__(self) -> str:
         status = "in corso" if self.clock_out is None else "completato"
-        return f"{self.fkvolontario} - {self.clock_in:%d/%m/%Y %H:%M} ({status})"
+        return f"{self.fkvolontario} - {timezone.localtime(self.clock_in):%d/%m/%Y %H:%M} ({status})"
 
     @property
     def is_open(self) -> bool:
