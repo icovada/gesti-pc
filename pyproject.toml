@@ -12,6 +12,7 @@ dependencies = [
     "pywebpush>=2.5.0",
     "pyjwt[crypto]>=2.15.1",
     "requests>=2.34.2",
+    "openpyxl>=3.1.5",
 ]
 
 [dependency-groups]

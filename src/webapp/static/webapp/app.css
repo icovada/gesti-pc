@@ -141,6 +141,7 @@ h2 { font-size: 16px; margin: 0 0 12px; }
   margin-right: 6px; vertical-align: -1px; background: var(--swatch);
 }
 .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }

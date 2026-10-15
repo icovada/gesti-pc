@@ -1,5 +1,6 @@
 import csv
 import json
+from io import BytesIO
 import logging
 from datetime import date
 from urllib.parse import urlencode
@@ -18,6 +19,8 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 
 from servizio.timbrature import (
     TimbraturaError,
@@ -29,7 +32,7 @@ from tg_bot.models import TelegramUser
 
 from . import push
 from .models import PushSubscription
-from .reports import CATEGORIE, hours_report, personal_hours
+from .reports import CATEGORIE, hours_report, personal_hours, timbrature_periodo
 from .telegram_auth import validate_init_data
 
 logger = logging.getLogger(__name__)
@@ -187,6 +190,9 @@ def _parse_range(params, today: date) -> tuple[date, date, str]:
 @permission_required(PERM_REPORT_ORE)
 def report_ore(request):
     start, end, preset = _parse_range(request.GET, timezone.localdate())
+    if request.GET.get("formato") == "xlsx":
+        return _timbrature_xlsx(start, end)
+
     report = hours_report(start, end)
 
     if request.GET.get("formato") == "csv":
@@ -208,7 +214,7 @@ def report_ore(request):
             "preset": preset,
             "chart_data": chart_data,
             "categorie": CATEGORIE,
-            "csv_query": request.GET.urlencode(),
+            "export_query": request.GET.urlencode(),
         },
     )
 
@@ -234,6 +240,77 @@ def _report_csv(report) -> HttpResponse:
 
 def _fmt(hours: float) -> str:
     return f"{hours:.2f}".replace(".", ",")
+
+
+XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _excel_datetime(dt):
+    # Excel non gestisce i fusi orari: si scrive l'ora locale senza tzinfo.
+    return timezone.localtime(dt).replace(tzinfo=None) if dt else None
+
+
+def _timbrature_xlsx(start: date, end: date) -> HttpResponse:
+    """Tutte le timbrature del periodo, una per riga."""
+    timbrature = (
+        timbrature_periodo(start, end)
+        .select_related("fkvolontario", "fkservizio", "fkscheduled_task")
+        .order_by("clock_in")
+    )
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Registrazioni ore"
+    ws.append(
+        [
+            "Codice fiscale",
+            "Cognome",
+            "Nome",
+            "Entrata",
+            "Uscita",
+            "Ore",
+            "Servizio",
+            "Attività programmata",
+            "Note",
+            "Inserita a mano",
+            "Modificata a mano il",
+        ]
+    )
+    for t in timbrature:
+        ore = t.duration / 60 if t.clock_out else None
+        ws.append(
+            [
+                str(t.fkvolontario.codice_fiscale),
+                t.fkvolontario.cognome,
+                t.fkvolontario.nome,
+                _excel_datetime(t.clock_in),
+                _excel_datetime(t.clock_out),
+                round(ore, 2) if ore is not None else None,
+                t.fkservizio.nome if t.fkservizio else "",
+                t.fkscheduled_task.nome if t.fkscheduled_task else "",
+                t.notes,
+                "Sì" if t.inserita_manualmente else "No",
+                _excel_datetime(t.modificata_at),
+            ]
+        )
+
+    for col in ("D", "E", "K"):
+        for cell in ws[col][1:]:
+            cell.number_format = "DD/MM/YYYY HH:MM"
+    for cell in ws["F"][1:]:
+        cell.number_format = "0.00"
+    widths = [18, 16, 16, 17, 17, 8, 30, 30, 40, 15, 20]
+    for i, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    response = HttpResponse(buffer.getvalue(), content_type=XLSX_CONTENT_TYPE)
+    response["Content-Disposition"] = (
+        f'attachment; filename="registrazioni_ore_{start:%Y%m%d}_{end:%Y%m%d}.xlsx"'
+    )
+    return response
 
 
 # --- Timbratura dall'app ------------------------------------------------------

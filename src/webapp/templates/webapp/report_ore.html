@@ -58,7 +58,10 @@
 <section class="card">
     <div class="card-head">
         <h2>Dettaglio</h2>
-        <a class="btn secondary" href="?{% if csv_query %}{{ csv_query }}&amp;{% endif %}formato=csv">Scarica CSV</a>
+        <div class="actions">
+            <a class="btn secondary" href="?{% if export_query %}{{ export_query }}&amp;{% endif %}formato=csv">Scarica CSV</a>
+            <a class="btn secondary" href="?{% if export_query %}{{ export_query }}&amp;{% endif %}formato=xlsx">Scarica Excel</a>
+        </div>
     </div>
     {% if report.per_volontario %}
     <div class="table-wrap">

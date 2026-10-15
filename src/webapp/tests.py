@@ -3,6 +3,7 @@ import hmac
 import json
 import time
 from datetime import date, datetime, timedelta
+from io import BytesIO
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
@@ -10,6 +11,7 @@ from django.contrib.auth.models import Permission
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from openpyxl import load_workbook
 
 from servizio.models import ScheduledTask, Servizio, Timbratura
 from tg_bot.models import TelegramUser
@@ -17,7 +19,7 @@ from volontario.models import Volontario
 
 from .reports import hours_report, month_range
 from .telegram_auth import validate_init_data
-from .views import _parse_range
+from .views import XLSX_CONTENT_TYPE, _parse_range
 
 BOT_TOKEN = "123456:TEST-TOKEN"
 VALID_CF = "RSSMRA90A01H501W"
@@ -144,6 +146,19 @@ class AccessTests(WebappTestCase):
         csv_response = self.client.get(reverse("webapp:report_ore"), {"formato": "csv"})
         self.assertEqual(csv_response["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn("Mario Rossi;2,00;1", csv_response.content.decode())
+
+        xlsx_response = self.client.get(
+            reverse("webapp:report_ore"), {"formato": "xlsx"}
+        )
+        self.assertEqual(xlsx_response["Content-Type"], XLSX_CONTENT_TYPE)
+        rows = list(
+            load_workbook(BytesIO(xlsx_response.content)).active.iter_rows(
+                values_only=True
+            )
+        )
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[1][:3], (VALID_CF, "Rossi", "Mario"))
+        self.assertEqual(rows[1][5], 2)
 
 
 class HoursReportTests(TestCase):

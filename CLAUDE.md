@@ -137,7 +137,7 @@ section to `SEZIONI` + `_LOADERS` + a template in `templates/webapp/profilo/`),
 presence — must be linked to a `Servizio` — or correct their own entries; rules in
 `webapp/forms.py`: last 60 days only, no future times, max 24h, no overlaps, times must fall
 near the chosen servizio), `/app/report/ore/` (hours report,
-requires the `servizio.view_report_ore` permission; Chart.js charts + CSV export via `?formato=csv`).
+requires the `servizio.view_report_ore` permission; Chart.js charts, per-volunteer CSV via `?formato=csv`, every `Timbratura` of the period as Excel via `?formato=xlsx`).
 - Auth: unauthenticated requests get `gate.html`. Inside Telegram it POSTs the signed
   `initData` to `/app/auth/telegram/` (validated in `telegram_auth.py`, HMAC with the bot
   token) and logs in the linked `Volontario.user`; in a browser it redirects to the homepage.

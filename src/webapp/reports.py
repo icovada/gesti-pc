@@ -42,6 +42,14 @@ def _local_midnight(d: date) -> datetime:
     return timezone.make_aware(datetime.combine(d, time.min))
 
 
+def timbrature_periodo(start: date, end: date):
+    """Timbrature con entrata tra start ed end inclusi (ora locale)."""
+    return Timbratura.objects.filter(
+        clock_in__gte=_local_midnight(start),
+        clock_in__lt=_local_midnight(end + timedelta(days=1)),
+    )
+
+
 def month_range(start: date, end: date) -> list[tuple[int, int]]:
     """Tutti i mesi (anno, mese) da start a end inclusi."""
     months = []
@@ -88,11 +96,8 @@ def hours_report(start: date, end: date) -> ReportOre:
     Una timbratura viene attribuita interamente al mese della sua entrata.
     """
     qs = (
-        Timbratura.objects.filter(
-            clock_out__isnull=False,
-            clock_in__gte=_local_midnight(start),
-            clock_in__lt=_local_midnight(end + timedelta(days=1)),
-        )
+        timbrature_periodo(start, end)
+        .filter(clock_out__isnull=False)
         .select_related("fkvolontario")
         .only(
             "clock_in",
